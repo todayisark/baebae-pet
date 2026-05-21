@@ -1,0 +1,54 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.spec
+
+# macOS app bundles / debug symbols
+*.app
+*.dSYM
+
+# Local baebae runtime data, if redirected into the repo during development
+Application Support/
+baebae/
+settings.json
+
+# Local planning notes
+doc/
+
+# Logs
+*.log
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
