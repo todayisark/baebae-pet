@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
@@ -16,8 +17,18 @@ DEFAULT_SETTINGS: dict = {
 }
 
 
-def _bundled_pets_dir() -> Path:
+def bundled_pets_dir() -> Path:
+    bundle_root_value = getattr(sys, "_MEIPASS", None)
+    if bundle_root_value:
+        bundle_root = Path(bundle_root_value)
+        bundled = bundle_root / "pets"
+        if bundled.exists():
+            return bundled
     return Path(__file__).resolve().parent.parent / "pets"
+
+
+def bundled_pet_dir(name: str = "default_pet") -> Path:
+    return bundled_pets_dir() / name
 
 
 def initialize() -> None:
@@ -34,7 +45,7 @@ def initialize() -> None:
         )
 
     # Copy bundled default_pet if not already present
-    bundled = _bundled_pets_dir() / "default_pet"
+    bundled = bundled_pet_dir("default_pet")
     target = pets_dir / "default_pet"
     if bundled.exists() and not target.exists():
         shutil.copytree(bundled, target)

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from engine.animator import Animator
 from engine.macos_window import apply_macos_always_on_top
+from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
 from engine.reminder import ReminderBubble
 from engine.state_machine import ONE_SHOT_STATES, State, StateMachine
 
@@ -264,6 +265,7 @@ class PetWindow(QWidget):
 
         menu.addSeparator()
         menu.addAction("导入素材包").triggered.connect(self._import_pet)
+        menu.addAction("导出模板素材包").triggered.connect(self._export_pet_template)
         menu.addAction("使用手册").triggered.connect(self._open_manual)
         menu.addSeparator()
         menu.addAction("清除所有数据").triggered.connect(self._clear_data)
@@ -345,6 +347,35 @@ class PetWindow(QWidget):
             )
         except Exception as exc:
             QMessageBox.critical(self, "导入失败", str(exc))
+
+    def _export_pet_template(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出模板素材包",
+            TEMPLATE_ARCHIVE_NAME,
+            "素材包 (*.zip)",
+        )
+        if not path:
+            return
+
+        from config import settings as cfg
+
+        try:
+            output_path = export_pet_template(
+                cfg.bundled_pet_dir("default_pet"),
+                Path(path),
+            )
+            QMessageBox.information(
+                self,
+                "导出成功",
+                f"已导出模板素材包：\n{output_path}",
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "导出失败",
+                f"无法导出模板素材包：{exc}",
+            )
 
     def _open_manual(self) -> None:
         webbrowser.open("https://github.com/todayisark/baebae-framework#readme")
