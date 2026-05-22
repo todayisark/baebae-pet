@@ -65,6 +65,7 @@ class ActivityMonitor:
         self._lock = threading.Lock()
         self._last_activity = time.monotonic()
         self._last_key_activity: float | None = None
+        self._typing_burst_start: float | None = None
         self._key_times: deque[float] = deque()
         self._work_start = time.monotonic()
 
@@ -110,7 +111,14 @@ class ActivityMonitor:
 
     def _on_key(self, key) -> None:
         now = time.monotonic()
+        gap_seconds = self._settings.get("typing_flow_gap_seconds", 5)
         with self._lock:
+            if (
+                self._last_key_activity is None
+                or now - self._last_key_activity > gap_seconds
+            ):
+                self._typing_burst_start = now
+                self._key_times.clear()
             self._last_activity = now
             self._last_key_activity = now
             self._key_times.append(now)
@@ -137,12 +145,13 @@ class ActivityMonitor:
                 if self._last_key_activity is None
                 else now - self._last_key_activity
             )
+            typing_burst_start = self._typing_burst_start
 
-            # Trim key_times window to flow_seconds
-            cutoff = now - flow_seconds
+            # Keep recent keys for future diagnostics without dropping the
+            # beginning of the active burst before flow can be detected.
+            cutoff = now - (flow_seconds + gap_seconds)
             while self._key_times and self._key_times[0] < cutoff:
                 self._key_times.popleft()
-            key_times = list(self._key_times)
 
         # --- idle_seconds ---
         self.idle_seconds = idle
@@ -155,12 +164,13 @@ class ActivityMonitor:
         self.is_typing = typing_idle < self._TYPING_IDLE_THRESHOLD
 
         # --- is_typing_flow ---
-        # Requires: last key within gap_seconds AND span of keys >= flow_seconds
-        if len(key_times) >= 2 and (now - key_times[-1]) <= gap_seconds:
-            span = key_times[-1] - key_times[0]
-            self.is_typing_flow = span >= flow_seconds
-        else:
-            self.is_typing_flow = False
+        # Requires an uninterrupted keyboard burst for flow_seconds, with no
+        # gap longer than gap_seconds.
+        self.is_typing_flow = (
+            typing_burst_start is not None
+            and typing_idle <= gap_seconds
+            and now - typing_burst_start >= flow_seconds
+        )
 
         # --- work_seconds ---
         # Reset work timer if idle for more than 5 minutes

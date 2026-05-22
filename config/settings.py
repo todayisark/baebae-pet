@@ -9,6 +9,7 @@ APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
 
 DEFAULT_SETTINGS: dict = {
     "pet": "default_pet",
+    "language": "en",
     "scale": 0.85,
     "remind_interval_minutes": 60,
     "remind_message": "工作一小时了，起来动一动吧！",

@@ -36,6 +36,8 @@ def apply_macos_always_on_top(widget: Any) -> bool:
             NSWindowCollectionBehaviorCanJoinAllSpaces
             | NSWindowCollectionBehaviorFullScreenAuxiliary
         )
+        if hasattr(ns_window, "setHasShadow_"):
+            ns_window.setHasShadow_(False)
         if hasattr(ns_window, "setCanHide_"):
             ns_window.setCanHide_(False)
         if hasattr(ns_window, "setHidesOnDeactivate_"):

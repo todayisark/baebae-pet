@@ -19,16 +19,22 @@ class ReminderBubble(QWidget):
 
     AUTO_DISMISS_MS = 30_000  # 30 seconds
 
-    def __init__(self, message: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        parent: QWidget | None = None,
+        dismiss_label: str = "我知道了",
+    ) -> None:
         super().__init__(
             parent,
             Qt.WindowType.Tool
             | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.NoDropShadowWindowHint
             | Qt.WindowType.WindowStaysOnTopHint,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self._setup_ui(message)
+        self._setup_ui(message, dismiss_label)
 
         self._auto_timer = QTimer(self)
         self._auto_timer.setSingleShot(True)
@@ -52,7 +58,7 @@ class ReminderBubble(QWidget):
     # UI
     # -------------------------------------------------------------------------
 
-    def _setup_ui(self, message: str) -> None:
+    def _setup_ui(self, message: str, dismiss_label: str) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
@@ -65,7 +71,7 @@ class ReminderBubble(QWidget):
         label.setMaximumWidth(220)
         layout.addWidget(label)
 
-        btn = QPushButton("我知道了")
+        btn = QPushButton(dismiss_label)
         btn.setStyleSheet(
             """
             QPushButton {

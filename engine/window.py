@@ -8,8 +8,8 @@ import zipfile
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QPoint, Qt, QTimer
-from PySide6.QtGui import QPainter
+from PySide6.QtCore import QPoint, Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from engine.animator import Animator
+from engine.i18n import next_language, t
 from engine.macos_window import apply_macos_always_on_top
 from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
 from engine.reminder import ReminderBubble
@@ -73,6 +74,7 @@ class PetWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.NoDropShadowWindowHint
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -225,7 +227,10 @@ class PetWindow(QWidget):
     def show_reminder(self, message: str) -> None:
         if self._reminder_bubble is not None:
             return
-        bubble = ReminderBubble(message)
+        bubble = ReminderBubble(
+            message,
+            dismiss_label=self._text("reminder.dismiss"),
+        )
         bubble.dismissed.connect(self._on_reminder_dismissed)
         bubble.adjustSize()
         pos = self.pos()
@@ -249,27 +254,44 @@ class PetWindow(QWidget):
     def _show_context_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
 
-        preview_menu = menu.addMenu("状态预览")
+        preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
-            action = preview_menu.addAction(state.value)
+            action = preview_menu.addAction(self._state_label(state))
             action.triggered.connect(
                 lambda _checked, s=state: self._preview_state(s)
             )
 
-        size_menu = menu.addMenu("切换大小")
-        for label, scale in [("小", 0.5), ("中", 0.85), ("大", 1.2)]:
+        size_menu = menu.addMenu(self._text("menu.size"))
+        for label_key, scale in [
+            ("size.small", 0.5),
+            ("size.medium", 0.85),
+            ("size.large", 1.2),
+        ]:
+            label = self._text(label_key)
             action = size_menu.addAction(label)
             action.triggered.connect(
                 lambda _checked, s=scale: self._set_scale(s)
             )
 
         menu.addSeparator()
-        menu.addAction("导入素材包").triggered.connect(self._import_pet)
-        menu.addAction("导出模板素材包").triggered.connect(self._export_pet_template)
-        menu.addAction("使用手册").triggered.connect(self._open_manual)
+        menu.addAction(self._text("menu.import_pet")).triggered.connect(
+            self._import_pet
+        )
+        menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(
+            self._open_pet_folder
+        )
+        menu.addAction(self._text("menu.export_template")).triggered.connect(
+            self._export_pet_template
+        )
+        menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
+        menu.addAction(self._text("menu.switch_language")).triggered.connect(
+            self._switch_language
+        )
         menu.addSeparator()
-        menu.addAction("清除所有数据").triggered.connect(self._clear_data)
-        menu.addAction("退出").triggered.connect(QApplication.quit)
+        menu.addAction(self._text("menu.clear_data")).triggered.connect(
+            self._clear_data
+        )
+        menu.addAction(self._text("menu.quit")).triggered.connect(QApplication.quit)
 
         menu.exec(pos)
 
@@ -298,9 +320,17 @@ class PetWindow(QWidget):
         from config import settings as cfg
         cfg.save(self.settings)
 
+    def _switch_language(self) -> None:
+        self.settings["language"] = next_language(self.settings.get("language"))
+        from config import settings as cfg
+        cfg.save(self.settings)
+
     def _import_pet(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "导入素材包", "", "素材包 (*.zip)"
+            self,
+            self._text("dialog.import_pet_title"),
+            "",
+            self._text("dialog.pet_package_filter"),
         )
         if path:
             self._do_import_pet(path)
@@ -313,7 +343,11 @@ class PetWindow(QWidget):
                 names = zf.namelist()
                 manifest_files = [n for n in names if n.endswith("manifest.json")]
                 if not manifest_files:
-                    QMessageBox.warning(self, "导入失败", "素材包中没有 manifest.json")
+                    QMessageBox.warning(
+                        self,
+                        self._text("dialog.import_failed_title"),
+                        self._text("dialog.missing_manifest"),
+                    )
                     return
 
                 with tempfile.TemporaryDirectory() as tmp:
@@ -343,17 +377,39 @@ class PetWindow(QWidget):
                 self.state_machine.transition_to(State.JUMP)
                 self.on_state_changed()
             QMessageBox.information(
-                self, "导入成功", f"已切换到 {manifest.get('name', pet_name)}"
+                self,
+                self._text("dialog.import_success_title"),
+                self._text(
+                    "dialog.import_success_message",
+                    name=manifest.get("name", pet_name),
+                ),
             )
         except Exception as exc:
-            QMessageBox.critical(self, "导入失败", str(exc))
+            QMessageBox.critical(
+                self,
+                self._text("dialog.import_failed_title"),
+                str(exc),
+            )
+
+    def _open_pet_folder(self) -> None:
+        pet_dir = self.animator.pet_dir
+        if pet_dir.exists() and QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(pet_dir))
+        ):
+            return
+
+        QMessageBox.warning(
+            self,
+            self._text("dialog.open_folder_failed_title"),
+            self._text("dialog.open_folder_failed_message", path=pet_dir),
+        )
 
     def _export_pet_template(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
             self,
-            "导出模板素材包",
+            self._text("dialog.export_template_title"),
             TEMPLATE_ARCHIVE_NAME,
-            "素材包 (*.zip)",
+            self._text("dialog.pet_package_filter"),
         )
         if not path:
             return
@@ -367,27 +423,33 @@ class PetWindow(QWidget):
             )
             QMessageBox.information(
                 self,
-                "导出成功",
-                f"已导出模板素材包：\n{output_path}",
+                self._text("dialog.export_success_title"),
+                self._text("dialog.export_success_message", path=output_path),
             )
         except Exception as exc:
             QMessageBox.critical(
                 self,
-                "导出失败",
-                f"无法导出模板素材包：{exc}",
+                self._text("dialog.export_failed_title"),
+                self._text("dialog.export_failed_message", error=exc),
             )
 
     def _open_manual(self) -> None:
-        webbrowser.open("https://github.com/todayisark/baebae-framework#readme")
+        webbrowser.open("https://github.com/todayisark/snappy-pet#readme")
 
     def _clear_data(self) -> None:
         reply = QMessageBox.question(
             self,
-            "清除所有数据",
-            "这将删除所有素材包和设置，确认吗？\n（程序将退出）",
+            self._text("dialog.clear_data_title"),
+            self._text("dialog.clear_data_message"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             from config import settings as cfg
             cfg.clear_all_data()
             QApplication.quit()
+
+    def _text(self, key: str, **kwargs: object) -> str:
+        return t(key, self.settings.get("language"), **kwargs)
+
+    def _state_label(self, state: State) -> str:
+        return self._text(f"state.{state.value}")
