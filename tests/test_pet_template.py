@@ -32,7 +32,9 @@ class PetTemplateTest(unittest.TestCase):
         self.assertIn(f"{TEMPLATE_DIR_NAME}/manifest.json", names)
         self.assertIn(f"{TEMPLATE_DIR_NAME}/idle/0.png", names)
         self.assertIn(f"{TEMPLATE_DIR_NAME}/typing/0.png", names)
+        self.assertIn(f"{TEMPLATE_DIR_NAME}/meal/0.png", names)
         self.assertEqual(manifest["name"], TEMPLATE_DIR_NAME)
+        self.assertIn("meal", manifest["animations"])
         self.assertIn("Replace the PNG frames", template_readme)
 
     def test_adds_zip_suffix_when_missing(self) -> None:

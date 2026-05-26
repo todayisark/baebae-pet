@@ -13,6 +13,9 @@ DEFAULT_SETTINGS: dict = {
     "scale": 0.85,
     "remind_interval_minutes": 60,
     "remind_message": "工作一小时了，起来动一动吧！",
+    "meal_reminder_enabled": True,
+    "meal_reminder_times": ["08:00", "12:00", "18:00"],
+    "meal_reminder_message": "该吃饭啦！",
     "typing_flow_seconds": 20,
     "typing_flow_gap_seconds": 5,
 }
@@ -50,6 +53,11 @@ def initialize() -> None:
     target = pets_dir / "default_pet"
     if bundled.exists() and not target.exists():
         shutil.copytree(bundled, target)
+    elif bundled.exists():
+        for child in bundled.iterdir():
+            target_child = target / child.name
+            if child.is_dir() and not target_child.exists():
+                shutil.copytree(child, target_child)
 
 
 def load() -> dict:

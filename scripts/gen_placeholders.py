@@ -16,6 +16,7 @@ STATES: dict[str, tuple[str, int]] = {
     "typing":       ("#AA96DA", 4),
     "typing_flow":  ("#FCBAD3", 6),
     "sleep":        ("#FFFFD2", 4),
+    "meal":         ("#FFE66D", 4),
     "jump":         ("#A8E6CF", 6),
     "remind":       ("#FFD3B6", 4),
     "poke":         ("#D3E0EA", 3),

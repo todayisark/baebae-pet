@@ -8,13 +8,19 @@ import zipfile
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QPoint, Qt, QTimer, QUrl
+from PySide6.QtCore import QPoint, Qt, QTime, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QPainter
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QMenu,
     QMessageBox,
+    QTimeEdit,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -284,6 +290,9 @@ class PetWindow(QWidget):
             self._export_pet_template
         )
         menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
+        menu.addAction(self._text("menu.meal_reminders")).triggered.connect(
+            self._configure_meal_reminders
+        )
         menu.addAction(self._text("menu.switch_language")).triggered.connect(
             self._switch_language
         )
@@ -435,6 +444,71 @@ class PetWindow(QWidget):
 
     def _open_manual(self) -> None:
         webbrowser.open("https://github.com/todayisark/snappy-pet#readme")
+
+    def _configure_meal_reminders(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._text("dialog.meal_title"))
+
+        layout = QVBoxLayout(dialog)
+        enabled = QCheckBox(self._text("dialog.meal_enabled"))
+        enabled.setChecked(self.settings.get("meal_reminder_enabled", True))
+        layout.addWidget(enabled)
+
+        form = QFormLayout()
+        time_edits: list[QTimeEdit] = []
+        meal_times = self._normalized_meal_times()
+        labels = [
+            self._text("dialog.meal_breakfast"),
+            self._text("dialog.meal_lunch"),
+            self._text("dialog.meal_dinner"),
+        ]
+        for label, meal_time in zip(labels, meal_times):
+            edit = QTimeEdit()
+            edit.setDisplayFormat("HH:mm")
+            edit.setTime(QTime.fromString(meal_time, "HH:mm"))
+            form.addRow(label, edit)
+            time_edits.append(edit)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        self.settings["meal_reminder_enabled"] = enabled.isChecked()
+        self.settings["meal_reminder_times"] = [
+            edit.time().toString("HH:mm") for edit in time_edits
+        ]
+        from config import settings as cfg
+        cfg.save(self.settings)
+
+    def _normalized_meal_times(self) -> list[str]:
+        raw_times = self.settings.get("meal_reminder_times", [])
+        if not isinstance(raw_times, list):
+            raw_times = []
+
+        normalized: list[str] = []
+        for item in raw_times:
+            raw = str(item).strip()
+            parts = raw.split(":")
+            if len(parts) != 2:
+                continue
+            try:
+                hour = int(parts[0])
+                minute = int(parts[1])
+            except ValueError:
+                continue
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                normalized.append(f"{hour:02d}:{minute:02d}")
+
+        defaults = ["08:00", "12:00", "18:00"]
+        return (normalized + defaults)[:3]
 
     def _clear_data(self) -> None:
         reply = QMessageBox.question(

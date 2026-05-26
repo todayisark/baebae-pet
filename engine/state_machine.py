@@ -9,6 +9,7 @@ class State(str, Enum):
     TYPING = "typing"
     TYPING_FLOW = "typing_flow"
     SLEEP = "sleep"
+    MEAL = "meal"
     JUMP = "jump"
     REMIND = "remind"
     POKE = "poke"

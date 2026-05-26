@@ -8,6 +8,7 @@
     "typing": { "fps": 4 },
     "typing_flow": { "fps": 4 },
     "sleep": { "fps": 4 },
+    "meal": { "fps": 4 },
     "jump": { "fps": 4 },
     "remind": { "fps": 4 },
     "poke": { "fps": 4 },
