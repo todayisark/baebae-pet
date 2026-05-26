@@ -113,15 +113,15 @@ my_pet/
   "version": "0.1",
   "frameSize": [200, 200],
   "animations": {
-    "idle": { "fps": 8 },
-    "typing": { "fps": 12 },
-    "typing_flow": { "fps": 16 },
+    "idle": { "fps": 4 },
+    "typing": { "fps": 4 },
+    "typing_flow": { "fps": 4 },
     "sleep": { "fps": 4 },
-    "meal": { "fps": 8 },
-    "jump": { "fps": 10 },
-    "remind": { "fps": 8 },
-    "poke": { "fps": 10 },
-    "drag": { "fps": 10 }
+    "meal": { "fps": 4 },
+    "jump": { "fps": 4 },
+    "remind": { "fps": 4 },
+    "poke": { "fps": 4 },
+    "drag": { "fps": 4 }
   }
 }
 ```
@@ -298,15 +298,15 @@ Example `manifest.json`:
   "version": "0.1",
   "frameSize": [200, 200],
   "animations": {
-    "idle": { "fps": 8 },
-    "typing": { "fps": 12 },
-    "typing_flow": { "fps": 16 },
+    "idle": { "fps": 4 },
+    "typing": { "fps": 4 },
+    "typing_flow": { "fps": 4 },
     "sleep": { "fps": 4 },
-    "meal": { "fps": 8 },
-    "jump": { "fps": 10 },
-    "remind": { "fps": 8 },
-    "poke": { "fps": 10 },
-    "drag": { "fps": 10 }
+    "meal": { "fps": 4 },
+    "jump": { "fps": 4 },
+    "remind": { "fps": 4 },
+    "poke": { "fps": 4 },
+    "drag": { "fps": 4 }
   }
 }
 ```
