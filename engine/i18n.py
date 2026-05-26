@@ -11,8 +11,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu.open_pet_folder": "Open Pet Folder",
         "menu.export_template": "Export Template Pack",
         "menu.manual": "Manual",
-        "menu.meal_reminders": "Meal Reminders",
-        "menu.switch_language": "Switch to Chinese",
+        "menu.settings": "Settings",
         "menu.clear_data": "Clear All Data",
         "menu.quit": "Quit",
         "size.small": "Small",
@@ -40,7 +39,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.export_success_message": "Template pet pack exported:\n{path}",
         "dialog.export_failed_title": "Export Failed",
         "dialog.export_failed_message": "Could not export template pet pack: {error}",
-        "dialog.meal_title": "Meal Reminders",
+        "dialog.settings_title": "Settings",
+        "dialog.settings_general": "General",
+        "dialog.settings_language": "Language",
+        "dialog.settings_rest": "Break Reminder",
+        "dialog.settings_rest_interval": "Interval (minutes)",
+        "dialog.settings_rest_message": "Message",
+        "dialog.settings_meal": "Meal Reminders",
+        "dialog.settings_meal_message": "Message",
         "dialog.meal_enabled": "Enable meal reminders",
         "dialog.meal_breakfast": "Breakfast",
         "dialog.meal_lunch": "Lunch",
@@ -59,8 +65,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu.open_pet_folder": "打开素材目录",
         "menu.export_template": "导出模板素材包",
         "menu.manual": "使用手册",
-        "menu.meal_reminders": "吃饭提醒设置",
-        "menu.switch_language": "Switch to English",
+        "menu.settings": "设置",
         "menu.clear_data": "清除所有数据",
         "menu.quit": "退出",
         "size.small": "小",
@@ -88,7 +93,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.export_success_message": "已导出模板素材包：\n{path}",
         "dialog.export_failed_title": "导出失败",
         "dialog.export_failed_message": "无法导出模板素材包：{error}",
-        "dialog.meal_title": "吃饭提醒设置",
+        "dialog.settings_title": "设置",
+        "dialog.settings_general": "通用",
+        "dialog.settings_language": "语言",
+        "dialog.settings_rest": "休息提醒",
+        "dialog.settings_rest_interval": "间隔（分钟）",
+        "dialog.settings_rest_message": "提示文案",
+        "dialog.settings_meal": "吃饭提醒",
+        "dialog.settings_meal_message": "提示文案",
         "dialog.meal_enabled": "开启吃饭提醒",
         "dialog.meal_breakfast": "早餐",
         "dialog.meal_lunch": "午餐",
@@ -104,10 +116,6 @@ def normalize_language(language: str | None) -> str:
     if language in SUPPORTED_LANGUAGES:
         return language
     return DEFAULT_LANGUAGE
-
-
-def next_language(language: str | None) -> str:
-    return "en" if normalize_language(language) == "zh" else "zh"
 
 
 def t(key: str, language: str | None, **kwargs: object) -> str:

@@ -13,19 +13,23 @@ from PySide6.QtGui import QDesktopServices, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
+    QLineEdit,
     QMenu,
     QMessageBox,
+    QSpinBox,
     QTimeEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from engine.animator import Animator
-from engine.i18n import next_language, t
+from engine.i18n import normalize_language, t
 from engine.macos_window import apply_macos_always_on_top
 from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
 from engine.reminder import ReminderBubble
@@ -267,18 +271,6 @@ class PetWindow(QWidget):
                 lambda _checked, s=state: self._preview_state(s)
             )
 
-        size_menu = menu.addMenu(self._text("menu.size"))
-        for label_key, scale in [
-            ("size.small", 0.5),
-            ("size.medium", 0.85),
-            ("size.large", 1.2),
-        ]:
-            label = self._text(label_key)
-            action = size_menu.addAction(label)
-            action.triggered.connect(
-                lambda _checked, s=scale: self._set_scale(s)
-            )
-
         menu.addSeparator()
         menu.addAction(self._text("menu.import_pet")).triggered.connect(
             self._import_pet
@@ -290,11 +282,8 @@ class PetWindow(QWidget):
             self._export_pet_template
         )
         menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
-        menu.addAction(self._text("menu.meal_reminders")).triggered.connect(
-            self._configure_meal_reminders
-        )
-        menu.addAction(self._text("menu.switch_language")).triggered.connect(
-            self._switch_language
+        menu.addAction(self._text("menu.settings")).triggered.connect(
+            self._open_settings
         )
         menu.addSeparator()
         menu.addAction(self._text("menu.clear_data")).triggered.connect(
@@ -321,18 +310,6 @@ class PetWindow(QWidget):
         if self.state_machine.is_temporary:
             self.state_machine.restore()
             self.on_state_changed()
-
-    def _set_scale(self, scale: float) -> None:
-        self.settings["scale"] = scale
-        self.animator.set_scale(scale)
-        self.on_state_changed()
-        from config import settings as cfg
-        cfg.save(self.settings)
-
-    def _switch_language(self) -> None:
-        self.settings["language"] = next_language(self.settings.get("language"))
-        from config import settings as cfg
-        cfg.save(self.settings)
 
     def _import_pet(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -445,14 +422,55 @@ class PetWindow(QWidget):
     def _open_manual(self) -> None:
         webbrowser.open("https://github.com/todayisark/snappy-pet#readme")
 
-    def _configure_meal_reminders(self) -> None:
+    def _open_settings(self) -> None:
         dialog = QDialog(self)
-        dialog.setWindowTitle(self._text("dialog.meal_title"))
+        dialog.setWindowTitle(self._text("dialog.settings_title"))
 
         layout = QVBoxLayout(dialog)
+
+        general_box = QGroupBox(self._text("dialog.settings_general"))
+        general_form = QFormLayout(general_box)
+
+        language = QComboBox()
+        language.addItem("中文", "zh")
+        language.addItem("English", "en")
+        current_language = normalize_language(self.settings.get("language"))
+        language.setCurrentIndex(language.findData(current_language))
+        general_form.addRow(self._text("dialog.settings_language"), language)
+
+        scale = QComboBox()
+        for label_key, value in [
+            ("size.small", 0.5),
+            ("size.medium", 0.85),
+            ("size.large", 1.2),
+        ]:
+            scale.addItem(self._text(label_key), value)
+        current_scale = self.settings.get("scale", 0.85)
+        scale_values = [scale.itemData(i) for i in range(scale.count())]
+        nearest_scale = min(
+            range(len(scale_values)),
+            key=lambda i: abs(float(scale_values[i]) - float(current_scale)),
+        )
+        scale.setCurrentIndex(nearest_scale)
+        general_form.addRow(self._text("menu.size"), scale)
+        layout.addWidget(general_box)
+
+        rest_box = QGroupBox(self._text("dialog.settings_rest"))
+        rest_form = QFormLayout(rest_box)
+        rest_interval = QSpinBox()
+        rest_interval.setRange(1, 1440)
+        rest_interval.setValue(int(self.settings.get("remind_interval_minutes", 60)))
+        rest_form.addRow(self._text("dialog.settings_rest_interval"), rest_interval)
+
+        rest_message = QLineEdit(str(self.settings.get("remind_message", "")))
+        rest_form.addRow(self._text("dialog.settings_rest_message"), rest_message)
+        layout.addWidget(rest_box)
+
+        meal_box = QGroupBox(self._text("dialog.settings_meal"))
+        meal_layout = QVBoxLayout(meal_box)
         enabled = QCheckBox(self._text("dialog.meal_enabled"))
         enabled.setChecked(self.settings.get("meal_reminder_enabled", True))
-        layout.addWidget(enabled)
+        meal_layout.addWidget(enabled)
 
         form = QFormLayout()
         time_edits: list[QTimeEdit] = []
@@ -468,7 +486,11 @@ class PetWindow(QWidget):
             edit.setTime(QTime.fromString(meal_time, "HH:mm"))
             form.addRow(label, edit)
             time_edits.append(edit)
-        layout.addLayout(form)
+        meal_layout.addLayout(form)
+
+        meal_message = QLineEdit(str(self.settings.get("meal_reminder_message", "")))
+        form.addRow(self._text("dialog.settings_meal_message"), meal_message)
+        layout.addWidget(meal_box)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -481,10 +503,19 @@ class PetWindow(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
+        self.settings["language"] = str(language.currentData())
+        self.settings["scale"] = float(scale.currentData())
+        self.settings["remind_interval_minutes"] = rest_interval.value()
+        self.settings["remind_message"] = rest_message.text()
         self.settings["meal_reminder_enabled"] = enabled.isChecked()
         self.settings["meal_reminder_times"] = [
             edit.time().toString("HH:mm") for edit in time_edits
         ]
+        self.settings["meal_reminder_message"] = meal_message.text()
+
+        self.animator.set_scale(self.settings["scale"])
+        self.on_state_changed()
+
         from config import settings as cfg
         cfg.save(self.settings)
 

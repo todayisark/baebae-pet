@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from engine.i18n import normalize_language, next_language, t
+from engine.i18n import normalize_language, t
 
 
 class I18nTest(unittest.TestCase):
     def test_normalizes_unknown_language_to_chinese(self) -> None:
         self.assertEqual(normalize_language(None), "zh")
         self.assertEqual(normalize_language("fr"), "zh")
-
-    def test_switches_between_chinese_and_english(self) -> None:
-        self.assertEqual(next_language("zh"), "en")
-        self.assertEqual(next_language("en"), "zh")
 
     def test_translates_menu_labels(self) -> None:
         self.assertEqual(t("menu.import_pet", "zh"), "导入素材包")
