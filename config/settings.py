@@ -11,6 +11,7 @@ DEFAULT_SETTINGS: dict = {
     "pet": "default_pet",
     "language": "en",
     "scale": 0.85,
+    "opacity": 1.0,
     "remind_interval_minutes": 60,
     "remind_message": "工作一小时了，起来动一动吧！",
     "meal_reminder_enabled": True,

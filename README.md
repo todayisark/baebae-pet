@@ -73,7 +73,7 @@ python main.py
 - 打开当前宠物的素材目录
 - 导出模板素材包
 - 打开使用手册
-- 打开设置窗口，调整语言、大小、休息提醒和吃饭提醒
+- 打开设置窗口，调整语言、大小、透明度、休息提醒和吃饭提醒
 - 清除所有数据
 - 退出程序
 
@@ -257,7 +257,7 @@ After launch, the default pet appears on the desktop. Right-click the pet to ope
 - Open the current pet folder
 - Export a template pet pack
 - Open the manual
-- Open settings to adjust language, size, break reminders, and meal reminders
+- Open settings to adjust language, size, opacity, break reminders, and meal reminders
 - Switch between Chinese and English
 - Clear all data
 - Quit

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QGroupBox,
+    QLabel,
     QLineEdit,
     QMenu,
     QMessageBox,
@@ -88,6 +89,7 @@ class PetWindow(QWidget):
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowOpacity(self._normalized_opacity())
 
         # Initial size from first frame
         anim = self.animator.get_animation(self.state_machine.state)
@@ -453,6 +455,13 @@ class PetWindow(QWidget):
         )
         scale.setCurrentIndex(nearest_scale)
         general_form.addRow(self._text("menu.size"), scale)
+
+        opacity = QSpinBox()
+        opacity.setRange(30, 100)
+        opacity.setSuffix("%")
+        opacity.setValue(round(self._normalized_opacity() * 100))
+        general_form.addRow(self._text("dialog.settings_opacity"), opacity)
+        self._add_hint(general_form, self._text("dialog.settings_opacity_hint"))
         layout.addWidget(general_box)
 
         rest_box = QGroupBox(self._text("dialog.settings_rest"))
@@ -461,6 +470,7 @@ class PetWindow(QWidget):
         rest_interval.setRange(1, 1440)
         rest_interval.setValue(int(self.settings.get("remind_interval_minutes", 60)))
         rest_form.addRow(self._text("dialog.settings_rest_interval"), rest_interval)
+        self._add_hint(rest_form, self._text("dialog.settings_rest_interval_hint"))
 
         rest_message = QLineEdit(str(self.settings.get("remind_message", "")))
         rest_form.addRow(self._text("dialog.settings_rest_message"), rest_message)
@@ -505,6 +515,7 @@ class PetWindow(QWidget):
 
         self.settings["language"] = str(language.currentData())
         self.settings["scale"] = float(scale.currentData())
+        self.settings["opacity"] = opacity.value() / 100
         self.settings["remind_interval_minutes"] = rest_interval.value()
         self.settings["remind_message"] = rest_message.text()
         self.settings["meal_reminder_enabled"] = enabled.isChecked()
@@ -514,6 +525,7 @@ class PetWindow(QWidget):
         self.settings["meal_reminder_message"] = meal_message.text()
 
         self.animator.set_scale(self.settings["scale"])
+        self.setWindowOpacity(self._normalized_opacity())
         self.on_state_changed()
 
         from config import settings as cfg
@@ -540,6 +552,18 @@ class PetWindow(QWidget):
 
         defaults = ["08:00", "12:00", "18:00"]
         return (normalized + defaults)[:3]
+
+    def _normalized_opacity(self) -> float:
+        try:
+            opacity = float(self.settings.get("opacity", 1.0))
+        except (TypeError, ValueError):
+            opacity = 1.0
+        return min(1.0, max(0.3, opacity))
+
+    def _add_hint(self, form: QFormLayout, text: str) -> None:
+        hint = QLabel(text)
+        hint.setStyleSheet("color: #666666; font-size: 11px;")
+        form.addRow("", hint)
 
     def _clear_data(self) -> None:
         reply = QMessageBox.question(
