@@ -6,7 +6,7 @@ from pathlib import Path
 
 TEMPLATE_ARCHIVE_NAME = "pet-template.zip"
 TEMPLATE_DIR_NAME = "pet_template"
-TEMPLATE_README = """# baebae Pet Template
+TEMPLATE_README = """# Baebae Pet Template
 
 1. Replace the PNG frames in each state folder.
 2. Update `manifest.json`, especially `name`, `author`, and `version`.

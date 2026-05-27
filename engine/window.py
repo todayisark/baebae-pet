@@ -425,7 +425,7 @@ class PetWindow(QWidget):
             )
 
     def _open_manual(self) -> None:
-        webbrowser.open("https://github.com/todayisark/snappy-pet#readme")
+        webbrowser.open("https://github.com/todayisark/baebae-pet#readme")
 
     def _open_settings(self) -> None:
         dialog = QDialog(self)

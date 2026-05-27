@@ -1,4 +1,4 @@
-# baebae Pet Template
+# Baebae Pet Template
 
 1. Replace the PNG frames in each state folder.
 2. Update `manifest.json`, especially `name`, `author`, and `version`.
