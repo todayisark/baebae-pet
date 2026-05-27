@@ -1,17 +1,35 @@
 {
-  "name": "default_pet",
-  "author": "snappy-pet",
+  "name": "pet_template",
+  "author": "ark",
   "version": "0.1",
   "frameSize": [200, 200],
   "animations": {
-    "idle": { "fps": 4 },
-    "typing": { "fps": 4 },
-    "typing_flow": { "fps": 4 },
-    "sleep": { "fps": 4 },
-    "meal": { "fps": 4 },
-    "jump": { "fps": 4 },
-    "remind": { "fps": 4 },
-    "poke": { "fps": 4 },
-    "drag": { "fps": 4 }
+    "idle": {
+      "fps": 8
+    },
+    "typing": {
+      "fps": 8
+    },
+    "typing_flow": {
+      "fps": 8
+    },
+    "sleep": {
+      "fps": 8
+    },
+    "meal": {
+      "fps": 8
+    },
+    "jump": {
+      "fps": 8
+    },
+    "remind": {
+      "fps": 8
+    },
+    "poke": {
+      "fps": 8
+    },
+    "drag": {
+      "fps": 8
+    }
   }
 }
