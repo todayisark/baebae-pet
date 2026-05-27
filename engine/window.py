@@ -33,7 +33,7 @@ from engine.animator import Animator
 from engine.i18n import normalize_language, t
 from engine.macos_window import apply_macos_always_on_top
 from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
-from engine.reminder import ReminderBubble
+from engine.reminder import ReminderBubble, UpdateBubble
 from engine.state_machine import ONE_SHOT_STATES, State, StateMachine
 
 
@@ -57,6 +57,7 @@ class PetWindow(QWidget):
         settings: dict,
         *,
         on_reset: Callable[[], None] | None = None,
+        update_checker=None,
     ) -> None:
         super().__init__()
         self.animator = animator
@@ -71,9 +72,17 @@ class PetWindow(QWidget):
         self._drag_window_start: QPoint | None = None
         self._dragging = False
         self._reminder_bubble: ReminderBubble | None = None
+        self._update_bubble: UpdateBubble | None = None
+        self._update_checker = update_checker
+        self._manual_check_pending = False
         self._preview_restore_timer = QTimer(self)
         self._preview_restore_timer.setSingleShot(True)
         self._preview_restore_timer.timeout.connect(self._on_preview_restore)
+
+        if update_checker is not None:
+            update_checker.update_available.connect(self._on_update_available)
+            update_checker.up_to_date.connect(self._on_up_to_date)
+            update_checker.check_failed.connect(self._on_check_failed)
 
         self._setup_window()
         self._anim_timer = QTimer(self)
@@ -289,6 +298,9 @@ class PetWindow(QWidget):
         menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
         menu.addAction(self._text("menu.settings")).triggered.connect(
             self._open_settings
+        )
+        menu.addAction(self._text("menu.check_update")).triggered.connect(
+            self._check_update
         )
         menu.addSeparator()
         menu.addAction(self._text("menu.clear_data")).triggered.connect(
@@ -567,6 +579,48 @@ class PetWindow(QWidget):
         hint = QLabel(text)
         hint.setStyleSheet("color: #666666; font-size: 11px;")
         form.addRow("", hint)
+
+    def _check_update(self) -> None:
+        if self._update_checker is None:
+            return
+        self._manual_check_pending = True
+        self._update_checker.check()
+
+    def _on_update_available(self, version: str, url: str) -> None:
+        if not self.isVisible():
+            return
+        self._manual_check_pending = False
+        if self._update_bubble is not None:
+            return
+        bubble = UpdateBubble(
+            self._text("update.available", version=version),
+            url,
+            download_label=self._text("update.download"),
+            dismiss_label=self._text("update.dismiss"),
+        )
+        bubble.dismissed.connect(self._on_update_bubble_dismissed)
+        bubble.adjustSize()
+        pos = self.pos()
+        bx = max(0, pos.x() + self.width() // 2 - bubble.width() // 2)
+        by = max(0, pos.y() - bubble.height() - 8)
+        bubble.move(bx, by)
+        bubble.show()
+        self._update_bubble = bubble
+
+    def _on_update_bubble_dismissed(self) -> None:
+        self._update_bubble = None
+
+    def _on_up_to_date(self) -> None:
+        if not self.isVisible() or not self._manual_check_pending:
+            return
+        self._manual_check_pending = False
+        self.show_reminder(self._text("update.up_to_date"))
+
+    def _on_check_failed(self, msg: str) -> None:
+        if not self.isVisible() or not self._manual_check_pending:
+            return
+        self._manual_check_pending = False
+        self.show_reminder(self._text("update.failed"))
 
     def _clear_data(self) -> None:
         reply = QMessageBox.question(

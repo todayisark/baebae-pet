@@ -13,6 +13,7 @@ import config.settings as cfg
 from engine.activity_monitor import ActivityMonitor
 from engine.animator import Animator
 from engine.state_machine import State, StateMachine
+from engine.update_checker import UpdateChecker
 from engine.window import PetWindow
 
 TYPING_IDLE_TIMEOUT_S = 10  # no keyboard input -> idle
@@ -54,11 +55,18 @@ class PetController:
         pet_dir: Path,
         *,
         on_reset: Callable[[], None] | None = None,
+        update_checker: UpdateChecker | None = None,
     ) -> None:
         self.settings = settings
         self.state_machine = StateMachine()
         self.animator = Animator(pet_dir, settings.get("scale", 0.85))
-        self.window = PetWindow(self.animator, self.state_machine, settings, on_reset=on_reset)
+        self.window = PetWindow(
+            self.animator,
+            self.state_machine,
+            settings,
+            on_reset=on_reset,
+            update_checker=update_checker,
+        )
         self.monitor = ActivityMonitor(settings)
 
         self._remind_shown = False
@@ -230,6 +238,9 @@ def main() -> int:
 
     cfg.initialize()
 
+    _checker = UpdateChecker()
+    _checker.start_scheduled()
+
     # These refs live in main()'s frame for the duration of app.exec().
     _controller: PetController | None = None
     _onboarding = None
@@ -237,7 +248,9 @@ def main() -> int:
     def _on_pet_ready(ready_settings: dict, ready_pet_dir: Path) -> None:
         nonlocal _controller, _onboarding
         _apply_dock_icon(ready_pet_dir)
-        _controller = PetController(ready_settings, ready_pet_dir, on_reset=_on_reset)
+        _controller = PetController(
+            ready_settings, ready_pet_dir, on_reset=_on_reset, update_checker=_checker
+        )
         _onboarding = None
 
     def _on_reset() -> None:
@@ -264,7 +277,7 @@ def main() -> int:
     if pet_dir is None:
         _onboarding = _show_onboarding(settings)
     else:
-        _controller = PetController(settings, pet_dir, on_reset=_on_reset)
+        _controller = PetController(settings, pet_dir, on_reset=_on_reset, update_checker=_checker)
 
     return app.exec()
 

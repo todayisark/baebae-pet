@@ -5,6 +5,7 @@ import shutil
 import sys
 from pathlib import Path
 
+APP_VERSION = "0.2.0-beta"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
 
 DEFAULT_SETTINGS: dict = {

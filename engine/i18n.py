@@ -76,6 +76,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.clear_data_title": "Clear All Data",
         "dialog.clear_data_message": "This will permanently delete all pet packs and settings.",
         "reminder.dismiss": "Got it",
+        "menu.check_update": "Check for Updates",
+        "update.available": "New version {version} available!",
+        "update.up_to_date": "You're on the latest version.",
+        "update.failed": "Could not check for updates.",
+        "update.download": "Download",
+        "update.dismiss": "Later",
     },
     "zh": {
         "onboarding.window_title": "欢迎使用 baebae",
@@ -149,6 +155,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.clear_data_title": "清除所有数据",
         "dialog.clear_data_message": "这将永久删除所有素材包和设置，操作不可撤销。",
         "reminder.dismiss": "我知道了",
+        "menu.check_update": "检查更新",
+        "update.available": "发现新版本 {version}！",
+        "update.up_to_date": "当前已是最新版本。",
+        "update.failed": "检查更新失败。",
+        "update.download": "前往下载",
+        "update.dismiss": "知道了",
     },
 }
 

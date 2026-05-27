@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPainterPath
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPainterPath
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from engine.macos_window import apply_macos_always_on_top
 
@@ -108,5 +108,113 @@ class ReminderBubble(QWidget):
 
     def _on_dismiss(self) -> None:
         self._auto_timer.stop()
+        self.close()
+        self.dismissed.emit()
+
+
+class UpdateBubble(QWidget):
+    """Floating bubble shown when a new version is available."""
+
+    dismissed = Signal()
+
+    def __init__(
+        self,
+        message: str,
+        download_url: str,
+        download_label: str = "前往下载",
+        dismiss_label: str = "知道了",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(
+            parent,
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.NoDropShadowWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint,
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._download_url = download_url
+        self._setup_ui(message, download_label, dismiss_label)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._apply_level()
+
+    def _apply_level(self, attempts: int = 5) -> None:
+        if apply_macos_always_on_top(self):
+            return
+        if attempts > 1:
+            from PySide6.QtCore import QTimer as _QTimer
+            _QTimer.singleShot(100, lambda: self._apply_level(attempts - 1))
+
+    def _setup_ui(self, message: str, download_label: str, dismiss_label: str) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
+
+        label = QLabel(message)
+        label.setStyleSheet(
+            "color: #333333; font-size: 13px; background: transparent;"
+        )
+        label.setWordWrap(True)
+        label.setMaximumWidth(220)
+        layout.addWidget(label)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+
+        btn_download = QPushButton(download_label)
+        btn_download.setStyleSheet(
+            """
+            QPushButton {
+                background: #5B8CFF;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 5px 14px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background: #4A7BEE; }
+            QPushButton:pressed { background: #3A6BDE; }
+            """
+        )
+        btn_download.clicked.connect(self._on_download)
+        btn_row.addWidget(btn_download)
+
+        btn_dismiss = QPushButton(dismiss_label)
+        btn_dismiss.setStyleSheet(
+            """
+            QPushButton {
+                background: #E8E8E8;
+                color: #444444;
+                border: none;
+                border-radius: 8px;
+                padding: 5px 14px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background: #D8D8D8; }
+            QPushButton:pressed { background: #C8C8C8; }
+            """
+        )
+        btn_dismiss.clicked.connect(self._on_dismiss)
+        btn_row.addWidget(btn_dismiss)
+
+        layout.addLayout(btn_row)
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(self.rect().adjusted(1, 1, -1, -1), 12, 12)
+        painter.fillPath(path, QColor(255, 255, 255, 245))
+        painter.setPen(QColor(210, 210, 210))
+        painter.drawPath(path)
+
+    def _on_download(self) -> None:
+        QDesktopServices.openUrl(QUrl(self._download_url))
+        self._on_dismiss()
+
+    def _on_dismiss(self) -> None:
         self.close()
         self.dismissed.emit()
