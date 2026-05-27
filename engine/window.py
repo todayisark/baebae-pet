@@ -55,11 +55,14 @@ class PetWindow(QWidget):
         animator: Animator,
         state_machine: StateMachine,
         settings: dict,
+        *,
+        on_reset: Callable[[], None] | None = None,
     ) -> None:
         super().__init__()
         self.animator = animator
         self.state_machine = state_machine
         self.settings = settings
+        self.on_reset = on_reset
 
         self.on_remind_dismissed: Callable[[], None] | None = None
 
@@ -575,7 +578,8 @@ class PetWindow(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             from config import settings as cfg
             cfg.clear_all_data()
-            QApplication.quit()
+            if self.on_reset:
+                QTimer.singleShot(0, self.on_reset)
 
     def _text(self, key: str, **kwargs: object) -> str:
         return t(key, self.settings.get("language"), **kwargs)

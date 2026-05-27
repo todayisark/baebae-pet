@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
 
 
@@ -47,6 +48,19 @@ def apply_macos_always_on_top(widget: Any) -> bool:
     except Exception as exc:
         print(f"[macOS window] failed to apply always-on-top: {exc}")
         return False
+
+
+def set_dock_icon(icon_path: Path) -> None:
+    """Set the macOS Dock icon at runtime from a PNG file."""
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApplication, NSImage
+        icon = NSImage.alloc().initWithContentsOfFile_(str(icon_path))
+        if icon:
+            NSApplication.sharedApplication().setApplicationIconImage_(icon)
+    except Exception as exc:
+        print(f"[macOS dock] failed to set icon: {exc}")
 
 
 def _coerce_ns_window(ns_object: Any) -> Any | None:

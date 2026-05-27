@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -47,11 +48,17 @@ class PetController:
     Polls every second via QTimer.
     """
 
-    def __init__(self, settings: dict, pet_dir: Path) -> None:
+    def __init__(
+        self,
+        settings: dict,
+        pet_dir: Path,
+        *,
+        on_reset: Callable[[], None] | None = None,
+    ) -> None:
         self.settings = settings
         self.state_machine = StateMachine()
         self.animator = Animator(pet_dir, settings.get("scale", 0.85))
-        self.window = PetWindow(self.animator, self.state_machine, settings)
+        self.window = PetWindow(self.animator, self.state_machine, settings, on_reset=on_reset)
         self.monitor = ActivityMonitor(settings)
 
         self._remind_shown = False
@@ -192,7 +199,24 @@ class PetController:
         self._active_reminder_state = None
 
     def stop(self) -> None:
+        self._tick_timer.stop()
         self.monitor.stop()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _apply_dock_icon(pet_dir: Path | None) -> None:
+    from engine.macos_window import set_dock_icon
+    candidates = []
+    if pet_dir:
+        candidates.append(pet_dir / "idle" / "0.png")
+    candidates.append(cfg.bundled_pet_dir("default_pet") / "idle" / "0.png")
+    for path in candidates:
+        if path.exists():
+            set_dock_icon(path)
+            return
 
 
 # ---------------------------------------------------------------------------
@@ -205,19 +229,68 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
 
     cfg.initialize()
-    settings = cfg.load()
 
+    # These refs live in main()'s frame for the duration of app.exec().
+    _controller: PetController | None = None
+    _onboarding = None
+
+    def _on_pet_ready(ready_settings: dict, ready_pet_dir: Path) -> None:
+        nonlocal _controller, _onboarding
+        _apply_dock_icon(ready_pet_dir)
+        _controller = PetController(ready_settings, ready_pet_dir, on_reset=_on_reset)
+        _onboarding = None
+
+    def _on_reset() -> None:
+        nonlocal _controller, _onboarding
+        if _controller is not None:
+            _controller.stop()
+            _controller.window.hide()
+        _controller = None
+        cfg.initialize()
+        fresh_settings = cfg.load()
+        _onboarding = _show_onboarding(fresh_settings)
+
+    def _show_onboarding(settings: dict):
+        from ui.onboarding import OnboardingWindow
+        w = OnboardingWindow(settings, on_pet_ready=_on_pet_ready)
+        w.show()
+        return w
+
+    settings = cfg.load()
     pet_dir = cfg.get_active_pet_dir(settings)
 
+    _apply_dock_icon(pet_dir)
+
     if pet_dir is None:
-        from ui.onboarding import OnboardingWindow
-        onboarding = OnboardingWindow(settings)
-        onboarding.show()
+        _onboarding = _show_onboarding(settings)
     else:
-        _controller = PetController(settings, pet_dir)  # noqa: F841 (kept alive)
+        _controller = PetController(settings, pet_dir, on_reset=_on_reset)
 
     return app.exec()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import logging
+    import traceback
+
+    log_path = Path.home() / "Library" / "Logs" / "baebae.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        filename=str(log_path),
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        logging.critical("Unhandled exception:\n%s", msg)
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+    sys.excepthook = _excepthook
+    logging.info("baebae starting")
+
+    try:
+        sys.exit(main())
+    except Exception:
+        logging.critical("main() raised:\n%s", traceback.format_exc())
+        raise

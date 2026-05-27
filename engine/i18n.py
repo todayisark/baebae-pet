@@ -5,6 +5,25 @@ SUPPORTED_LANGUAGES = {"zh", "en"}
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "en": {
+        "onboarding.window_title": "Welcome to baebae",
+        "onboarding.title": "Welcome to baebae 🐾",
+        "onboarding.desc": (
+            "A pet pack (.zip) is required to start your desktop pet.\n\n"
+            "Export the built-in template, swap the images, then import it;\n"
+            "or use the template as-is with no modifications.\n\n"
+            "You can change pets anytime from the menu bar."
+        ),
+        "onboarding.export_template": "Export Template",
+        "onboarding.open_template_dir": "Open Template Folder",
+        "onboarding.use_default": "Use Template Directly",
+        "onboarding.import_pack": "Choose Pet Pack…",
+        "onboarding.export_success_msg": (
+            "Template saved to:\n{path}\n\n"
+            "Replace the images inside, then import with 'Choose Pet Pack'."
+        ),
+        "onboarding.no_pet_dir": "Could not find the pet pack directory.",
+        "onboarding.error_title": "Error",
+        "onboarding.quit": "Quit",
         "menu.state_preview": "State Preview",
         "menu.size": "Size",
         "menu.import_pet": "Import Pet Pack",
@@ -55,13 +74,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.meal_lunch": "Lunch",
         "dialog.meal_dinner": "Dinner",
         "dialog.clear_data_title": "Clear All Data",
-        "dialog.clear_data_message": (
-            "This will delete all pet packs and settings.\n"
-            "The app will quit after clearing data."
-        ),
+        "dialog.clear_data_message": "This will permanently delete all pet packs and settings.",
         "reminder.dismiss": "Got it",
     },
     "zh": {
+        "onboarding.window_title": "欢迎使用 baebae",
+        "onboarding.title": "欢迎使用 baebae 🐾",
+        "onboarding.desc": (
+            "需要导入一个素材包（.zip）才能启动桌面宠物。\n\n"
+            "你可以导出内置模板，替换其中的图片后再导入；\n"
+            "也可以直接使用模板的默认外观，无需任何修改。\n\n"
+            "启动后可以在菜单栏随时更换素材。"
+        ),
+        "onboarding.export_template": "导出模板",
+        "onboarding.open_template_dir": "打开模板目录",
+        "onboarding.use_default": "直接使用模板",
+        "onboarding.import_pack": "选择素材包…",
+        "onboarding.export_success_msg": (
+            "模板已保存到：\n{path}\n\n"
+            "替换其中的图片后，用「选择素材包」导入即可。"
+        ),
+        "onboarding.no_pet_dir": "无法找到素材包目录。",
+        "onboarding.error_title": "错误",
+        "onboarding.quit": "退出",
         "menu.state_preview": "状态预览",
         "menu.size": "切换大小",
         "menu.import_pet": "导入素材包",
@@ -112,7 +147,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "dialog.meal_lunch": "午餐",
         "dialog.meal_dinner": "晚餐",
         "dialog.clear_data_title": "清除所有数据",
-        "dialog.clear_data_message": "这将删除所有素材包和设置，确认吗？\n（程序将退出）",
+        "dialog.clear_data_message": "这将永久删除所有素材包和设置，操作不可撤销。",
         "reminder.dismiss": "我知道了",
     },
 }

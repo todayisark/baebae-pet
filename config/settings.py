@@ -49,16 +49,6 @@ def initialize() -> None:
             encoding="utf-8",
         )
 
-    # Copy bundled default_pet if not already present
-    bundled = bundled_pet_dir("default_pet")
-    target = pets_dir / "default_pet"
-    if bundled.exists() and not target.exists():
-        shutil.copytree(bundled, target)
-    elif bundled.exists():
-        for child in bundled.iterdir():
-            target_child = target / child.name
-            if child.is_dir() and not target_child.exists():
-                shutil.copytree(child, target_child)
 
 
 def load() -> dict:
