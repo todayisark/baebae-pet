@@ -6,6 +6,7 @@ from typing import Optional
 
 class State(str, Enum):
     IDLE = "idle"
+    IDLE_RANDOM = "idle_random"  # internal: random idle sub-action, one-shot → IDLE
     TYPING = "typing"
     TYPING_FLOW = "typing_flow"
     SLEEP = "sleep"
@@ -17,7 +18,7 @@ class State(str, Enum):
 
 
 # States that play once and automatically restore to the previous state
-ONE_SHOT_STATES = {State.JUMP, State.POKE}
+ONE_SHOT_STATES = {State.JUMP, State.POKE, State.IDLE_RANDOM}
 
 
 class StateMachine:

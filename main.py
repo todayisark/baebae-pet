@@ -16,8 +16,9 @@ from engine.state_machine import State, StateMachine
 from engine.update_checker import UpdateChecker
 from engine.window import PetWindow
 
-TYPING_IDLE_TIMEOUT_S = 10  # no keyboard input -> idle
-SLEEP_TIMEOUT_S = 15 * 60   # no input -> sleep
+TYPING_IDLE_TIMEOUT_S = 3       # no keyboard input -> idle
+SLEEP_TIMEOUT_S = 15 * 60       # no input -> sleep
+IDLE_RANDOM_INTERVAL_MS = 3 * 60 * 1000  # idle sub-action every 3 minutes
 
 
 def normalize_meal_reminder_times(value: object) -> list[str]:
@@ -76,10 +77,21 @@ class PetController:
         # Wire up reminder-dismissed callback
         self.window.on_remind_dismissed = self._on_remind_dismissed
 
+        # If jump animation is missing, skip straight to idle
+        if not self.animator.has_animation(State.JUMP):
+            self.state_machine.transition_to(State.IDLE)
+            self.window.on_state_changed()
+
         # Start polling
         self._tick_timer = QTimer()
         self._tick_timer.timeout.connect(self._tick)
         self._tick_timer.start(1000)
+
+        # Idle sub-action timer (only when variants exist)
+        self._idle_random_timer = QTimer()
+        self._idle_random_timer.timeout.connect(self._on_idle_random_tick)
+        if self.animator.has_idle_variants():
+            self._idle_random_timer.start(IDLE_RANDOM_INTERVAL_MS)
 
         # Start input listener
         self.monitor.start()
@@ -115,16 +127,18 @@ class PetController:
         meal_time = self._due_meal_reminder(now)
         if meal_time and state not in (State.MEAL, State.REMIND):
             self._meal_reminders_shown.add(self._meal_reminder_key(now, meal_time))
-            self._active_reminder_state = State.MEAL
-            self._go(State.MEAL)
-            self.window.show_reminder(
-                self.settings.get("meal_reminder_message", "该吃饭啦！")
-            )
+            if self.animator.has_animation(State.MEAL):
+                self._active_reminder_state = State.MEAL
+                self._go(State.MEAL)
+                self.window.show_reminder(
+                    self.settings.get("meal_reminder_message", "该吃饭啦！")
+                )
             return
 
         # ── 3. Sleep ──────────────────────────────────────────────────────────
         if idle >= SLEEP_TIMEOUT_S and state != State.SLEEP:
-            self._go(State.SLEEP)
+            if self.animator.has_animation(State.SLEEP):
+                self._go(State.SLEEP)
             return
 
         # ── 4. Wake from sleep on any activity ───────────────────────────────
@@ -141,17 +155,19 @@ class PetController:
             and state != State.SLEEP
         ):
             self._remind_shown = True
-            self._active_reminder_state = State.REMIND
-            self._go(State.REMIND)
-            self.window.show_reminder(
-                self.settings.get("remind_message", "该休息了！")
-            )
+            if self.animator.has_animation(State.REMIND):
+                self._active_reminder_state = State.REMIND
+                self._go(State.REMIND)
+                self.window.show_reminder(
+                    self.settings.get("remind_message", "该休息了！")
+                )
             return
 
         # ── 6. Typing-flow ────────────────────────────────────────────────────
         if self.monitor.is_typing_flow and state != State.TYPING_FLOW:
             if state not in (State.REMIND, State.MEAL, State.SLEEP):
-                self._go(State.TYPING_FLOW)
+                if self.animator.has_animation(State.TYPING_FLOW):
+                    self._go(State.TYPING_FLOW)
                 return
 
         # ── 7. Typing ─────────────────────────────────────────────────────────
@@ -167,7 +183,8 @@ class PetController:
                 State.MEAL,
             )
         ):
-            self._go(State.TYPING)
+            if self.animator.has_animation(State.TYPING):
+                self._go(State.TYPING)
             return
 
     def _now(self) -> datetime:
@@ -194,6 +211,18 @@ class PetController:
     def _meal_reminder_key(self, now: datetime, meal_time: str) -> str:
         return f"{now.date().isoformat()} {meal_time}"
 
+    def _on_idle_random_tick(self) -> None:
+        if self.state_machine.state != State.IDLE or self.state_machine.is_temporary:
+            return
+        variant = self.animator.random_idle_variant()
+        if variant is None:
+            return
+        self.animator.set_idle_variant(variant)
+        if self.state_machine.transition_to(
+            State.IDLE_RANDOM, temporary=True, return_to=State.IDLE
+        ):
+            self.window.on_state_changed()
+
     def _go(self, state: State) -> None:
         if self.state_machine.transition_to(state):
             self.window.on_state_changed()
@@ -208,6 +237,7 @@ class PetController:
 
     def stop(self) -> None:
         self._tick_timer.stop()
+        self._idle_random_timer.stop()
         self.monitor.stop()
 
 

@@ -20,6 +20,17 @@ class FakeMonitor:
         pass
 
 
+class FakeAnimator:
+    def has_animation(self, state: str) -> bool:
+        return True
+
+    def has_idle_variants(self) -> bool:
+        return False
+
+    def has_poke_animation(self) -> bool:
+        return True
+
+
 class FakeWindow:
     def __init__(self) -> None:
         self.changed_count = 0
@@ -42,6 +53,7 @@ def make_controller() -> tuple[PetController, FakeMonitor, FakeWindow]:
     }
     controller.state_machine = StateMachine()
     controller.state_machine.transition_to(State.IDLE)
+    controller.animator = FakeAnimator()
     controller.monitor = FakeMonitor()
     controller.window = FakeWindow()
     controller._remind_shown = False

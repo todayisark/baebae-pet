@@ -70,6 +70,7 @@ class PetWindow(QWidget):
         self._frame_index = 0
         self._drag_start_global: QPoint | None = None
         self._drag_window_start: QPoint | None = None
+        self._press_local_y: int = 0
         self._dragging = False
         self._reminder_bubble: ReminderBubble | None = None
         self._update_bubble: UpdateBubble | None = None
@@ -194,6 +195,7 @@ class PetWindow(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_start_global = event.globalPosition().toPoint()
             self._drag_window_start = self.pos()
+            self._press_local_y = int(event.position().y())
             self._dragging = False
         elif event.button() == Qt.MouseButton.RightButton:
             self._show_context_menu(event.globalPosition().toPoint())
@@ -217,23 +219,32 @@ class PetWindow(QWidget):
         if was_dragging:
             self._on_drag_end()
         else:
-            self._on_click()
+            self._on_click(self._press_local_y)
 
     # -------------------------------------------------------------------------
     # Interaction handlers
     # -------------------------------------------------------------------------
 
-    def _on_click(self) -> None:
+    def _on_click(self, local_y: int = 0) -> None:
         if self.state_machine.state == State.SLEEP:
             self.state_machine.transition_to(State.IDLE)
         elif not self.state_machine.is_temporary:
-            self.state_machine.transition_to(
-                State.POKE, temporary=True, return_to=self.state_machine.state
-            )
+            h = self.height()
+            if local_y < h // 3:
+                zone = "up"
+            elif local_y < 2 * h // 3:
+                zone = "mid"
+            else:
+                zone = "down"
+            self.animator.set_poke_zone(zone)
+            if self.animator.has_poke_animation():
+                self.state_machine.transition_to(
+                    State.POKE, temporary=True, return_to=self.state_machine.state
+                )
         self.on_state_changed()
 
     def _on_drag_start(self) -> None:
-        if not self.state_machine.is_temporary:
+        if not self.state_machine.is_temporary and self.animator.has_animation(State.DRAG):
             self.state_machine.transition_to(
                 State.DRAG, temporary=True, return_to=self.state_machine.state
             )
@@ -280,10 +291,36 @@ class PetWindow(QWidget):
 
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
-            action = preview_menu.addAction(self._state_label(state))
-            action.triggered.connect(
-                lambda _checked, s=state: self._preview_state(s)
-            )
+            if state == State.IDLE_RANDOM:
+                continue  # internal state; not user-previewable
+
+            if state == State.IDLE and self.animator.idle_variants:
+                sub = preview_menu.addMenu(self._state_label(state))
+                a = sub.addAction(self._text("menu.preview_default"))
+                a.triggered.connect(lambda _checked: self._preview_state(State.IDLE))
+                for variant_key in self.animator.idle_variants:
+                    name = variant_key.split("/", 1)[1]
+                    a = sub.addAction(name)
+                    a.triggered.connect(
+                        lambda _checked, k=variant_key: self._preview_idle_variant(k)
+                    )
+            elif state == State.POKE and self.animator.poke_zones:
+                sub = preview_menu.addMenu(self._state_label(state))
+                if self.animator.has_animation("poke"):
+                    a = sub.addAction(self._text("menu.preview_default"))
+                    a.triggered.connect(
+                        lambda _checked: self._preview_poke_zone(None)
+                    )
+                for zone in self.animator.poke_zones:
+                    a = sub.addAction(zone)
+                    a.triggered.connect(
+                        lambda _checked, z=zone: self._preview_poke_zone(z)
+                    )
+            else:
+                action = preview_menu.addAction(self._state_label(state))
+                action.triggered.connect(
+                    lambda _checked, s=state: self._preview_state(s)
+                )
 
         menu.addSeparator()
         menu.addAction(self._text("menu.import_pet")).triggered.connect(
@@ -319,6 +356,26 @@ class PetWindow(QWidget):
         self._preview_restore_timer.stop()
         self.state_machine.transition_to(
             state, temporary=True, return_to=State.IDLE
+        )
+        self.on_state_changed()
+        self._preview_restore_timer.start(self.MANUAL_PREVIEW_RETURN_MS)
+
+    def _preview_idle_variant(self, variant_key: str) -> None:
+        """Preview a specific idle sub-action once, then return to idle."""
+        self._preview_restore_timer.stop()
+        self.animator.set_idle_variant(variant_key)
+        self.state_machine.transition_to(
+            State.IDLE_RANDOM, temporary=True, return_to=State.IDLE
+        )
+        self.on_state_changed()
+        self._preview_restore_timer.start(self.MANUAL_PREVIEW_RETURN_MS)
+
+    def _preview_poke_zone(self, zone: str | None) -> None:
+        """Preview a poke animation for a specific zone (or default if zone is None)."""
+        self._preview_restore_timer.stop()
+        self.animator.set_poke_zone(zone)
+        self.state_machine.transition_to(
+            State.POKE, temporary=True, return_to=State.IDLE
         )
         self.on_state_changed()
         self._preview_restore_timer.start(self.MANUAL_PREVIEW_RETURN_MS)
