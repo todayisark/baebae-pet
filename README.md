@@ -4,16 +4,16 @@
 
 ## 中文
 
-Baebae Pet 是一个轻量级 macOS 桌面宠物框架。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包，而不是复杂 AI 助手或高性能 3D 系统。
+Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包，而不是复杂 AI 助手或高性能 3D 系统。
 
-当前项目仍处于 beta / testing 阶段，主要用于 macOS 本地验证。
+当前项目仍处于 beta / testing 阶段。
 
 **最新版本：v0.3.0-beta** · [下载](https://github.com/todayisark/baebae-pet/releases/latest)
 
 ### 功能
 
 - 透明、无边框、可拖拽的桌面宠物窗口
-- macOS 原生置顶处理，支持跨 Space 和全屏辅助窗口
+- macOS 原生置顶处理，支持跨 Space 和全屏辅助窗口；Windows 同样支持置顶
 - PNG 帧动画系统，每个状态一个目录
 - 键盘输入感知：打字、专注打字、停止打字后恢复 idle
 - 鼠标和妙控板点击不会触发 typing
@@ -74,16 +74,16 @@ idle/
 
 前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 下载最新版本：
 
-- **macOS (Apple Silicon)**：下载 `baebae-pet-vX.X.X-beta-macos-arm64.zip`，解压后将 `Baebae Pet Beta.app` 拖入「应用程序」文件夹
-- 首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
+- **macOS (Apple Silicon)**：下载 `baebae-pet-vX.X.X-beta-macos-arm64.zip`，解压后将 `Baebae Pet Beta.app` 拖入「应用程序」文件夹；首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
+- **Windows**：下载 `snappy-pet-vX.X.X-beta-windows-x64.zip`，解压后直接运行 `Snappy Pet Beta.exe`；若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」
 
 #### 从源码运行
 
 要求：
 
-- macOS
+- macOS 或 Windows
 - Python 3.11+
-- 辅助功能权限，用于监听键盘和鼠标活动
+- 辅助功能权限（macOS）或后台输入监听权限（Windows），用于监听键盘和鼠标活动
 
 从源码运行：
 
@@ -95,13 +95,10 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-如果输入监听没有生效，请到：
+如果输入监听没有生效：
 
-```text
-系统设置 -> 隐私与安全性 -> 辅助功能
-```
-
-把当前终端 App 或打包后的 Baebae Pet App 加进去，然后重新启动程序。
+- **macOS**：前往「系统设置 → 隐私与安全性 → 辅助功能」，将终端 App 或打包后的 App 加进去，然后重新启动程序
+- **Windows**：以普通用户身份运行通常即可；如仍无法监听输入，尝试以管理员身份运行
 
 ### 使用
 
@@ -246,7 +243,14 @@ baebae-pet/
 
 ### 打包状态
 
-当前代码可以用 PyInstaller 生成 macOS beta 包，压缩后约 32 MB（Apple Silicon）。beta 包仍是 ad-hoc 签名，首次运行或更新后可能需要重新添加辅助功能权限。正式分发前需要整理稳定的打包脚本、Developer ID 签名和 notarization 流程。
+当前代码可以用 PyInstaller 分别生成 macOS 和 Windows beta 包：
+
+| 平台 | 包名 | 压缩后大小 |
+| ---- | ---- | ---------- |
+| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB |
+| Windows (x64) | `Snappy Pet Beta.exe` | — |
+
+macOS beta 包为 ad-hoc 签名，首次运行或更新后可能需要重新添加辅助功能权限。正式分发前还需要 Developer ID 签名和 notarization 流程。
 
 ### License
 
@@ -256,16 +260,16 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## English
 
-Baebae Pet is a lightweight desktop pet framework for macOS. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs instead of complex AI assistant behavior or heavy 3D rendering.
+Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs instead of complex AI assistant behavior or heavy 3D rendering.
 
-The project is currently in beta / testing and is mainly validated on macOS.
+The project is currently in beta / testing.
 
 **Latest release: v0.3.0-beta** · [Download](https://github.com/todayisark/baebae-pet/releases/latest)
 
 ### Features
 
 - Transparent, frameless, draggable desktop pet window
-- Native macOS always-on-top handling with Spaces and fullscreen support
+- Native macOS always-on-top handling with Spaces and fullscreen support; always-on-top also supported on Windows
 - PNG frame animation system, one folder per state
 - Keyboard-aware states: typing, typing flow, and idle after typing stops
 - Mouse and trackpad clicks do not trigger typing
@@ -326,16 +330,16 @@ When the pet is clicked, the app divides the window into three vertical zones an
 
 Go to [Releases](https://github.com/todayisark/baebae-pet/releases/latest) and download the latest build:
 
-- **macOS (Apple Silicon)**: download `baebae-pet-vX.X.X-beta-macos-arm64.zip`, unzip it, and drag `Baebae Pet Beta.app` to your Applications folder
-- On first launch, go to **System Settings → Privacy & Security** to allow the app, and enable it under **Accessibility**
+- **macOS (Apple Silicon)**: download `baebae-pet-vX.X.X-beta-macos-arm64.zip`, unzip it, and drag `Baebae Pet Beta.app` to your Applications folder; on first launch go to **System Settings → Privacy & Security** to allow the app and enable it under **Accessibility**
+- **Windows**: download `snappy-pet-vX.X.X-beta-windows-x64.zip`, unzip it, and run `Snappy Pet Beta.exe`; if Windows SmartScreen appears, click **More info → Run anyway**
 
 #### Run from source
 
 Requirements:
 
-- macOS
+- macOS or Windows
 - Python 3.11+
-- Accessibility permission for keyboard and mouse activity monitoring
+- Accessibility permission (macOS) or background input monitoring (Windows) for keyboard and mouse activity
 
 Run from source:
 
@@ -347,13 +351,10 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-If input monitoring does not work, open:
+If input monitoring does not work:
 
-```text
-System Settings -> Privacy & Security -> Accessibility
-```
-
-Add your terminal app or the packaged Baebae Pet app, then restart Baebae Pet.
+- **macOS**: go to **System Settings → Privacy & Security → Accessibility**, add your terminal app or the packaged app, then restart Baebae Pet
+- **Windows**: running as a normal user usually works; if input is still not detected, try running as Administrator
 
 ### Usage
 
@@ -498,7 +499,14 @@ The current beta stores runtime settings and imported pet packs in the legacy di
 
 ### Packaging Status
 
-The code can be packaged into a macOS beta build with PyInstaller, producing a ~32 MB zip (Apple Silicon). Beta builds are still ad-hoc signed, so macOS may require Accessibility permission again after first launch or updates. A stable release flow still needs a dedicated build script, Developer ID signing, and notarization.
+The code can be packaged with PyInstaller for both macOS and Windows:
+
+| Platform | Bundle | Compressed size |
+| -------- | ------ | --------------- |
+| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB |
+| Windows (x64) | `Snappy Pet Beta.exe` | — |
+
+macOS beta builds are ad-hoc signed, so macOS may require Accessibility permission again after first launch or updates. A stable release flow still needs Developer ID signing and notarization.
 
 ### License
 
