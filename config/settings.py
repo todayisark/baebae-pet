@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
 
 APP_VERSION = "0.2.0-beta"
-APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
+
+if sys.platform == "darwin":
+    APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
+elif sys.platform == "win32":
+    APP_SUPPORT = Path(os.environ.get("APPDATA", Path.home())) / "baebae"
+else:
+    APP_SUPPORT = Path.home() / ".config" / "baebae"
 
 DEFAULT_SETTINGS: dict = {
     "pet": "default_pet",
