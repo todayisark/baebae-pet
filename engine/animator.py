@@ -137,8 +137,8 @@ class Animator:
                     self._animations[key] = self._build_animation(key)
                     self._idle_variants.append(key)
 
-        # Auto-discover poke zones: poke/up, poke/mid, poke/down
-        for zone in ("up", "mid", "down"):
+        # Auto-discover poke zones: poke/up, poke/mid, poke/down, poke/up_double
+        for zone in ("up", "mid", "down", "up_double"):
             key = f"poke/{zone}"
             zone_dir = self.pet_dir / key
             if zone_dir.exists() and any(zone_dir.glob("*.png")):

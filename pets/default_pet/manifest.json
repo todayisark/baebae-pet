@@ -31,6 +31,9 @@
     "poke/up": {
       "fps": 8
     },
+    "poke/up_double": {
+      "fps": 8
+    },
     "poke/mid": {
       "fps": 7
     },

@@ -54,6 +54,7 @@ class PetWindow(QWidget):
     MANUAL_PREVIEW_RETURN_MS = 3000  # ms before preview snaps back
     DRAG_FAST_THRESHOLD_PX_S = 600   # pixels/second to be considered "fast drag"
     DRAG_VEL_WINDOW_S = 0.15         # velocity averaging window in seconds
+    DOUBLE_CLICK_MS = 300            # max interval between clicks to count as double-click
 
     # Minimum play duration (seconds) per state. Frame count is read at runtime
     # so user-replaced assets with different frame counts are handled correctly.
@@ -90,6 +91,8 @@ class PetWindow(QWidget):
         self._drag_is_long: bool = False
         self._drag_is_fast: bool = False
         self._drag_vel_samples: deque = deque()  # (monotonic_time, QPoint)
+        self._last_click_time: float = 0.0
+        self._last_click_zone: str | None = None
         self._reminder_bubble: ReminderBubble | None = None
         self._update_bubble: UpdateBubble | None = None
         self._update_checker = update_checker
@@ -278,20 +281,40 @@ class PetWindow(QWidget):
     def _on_click(self, local_y: int = 0) -> None:
         if self.state_machine.state == State.SLEEP:
             self.state_machine.transition_to(State.IDLE)
-        elif not self.state_machine.is_temporary:
-            h = self.height()
-            if local_y < h // 3:
-                zone = "up"
-            elif local_y < 2 * h // 3:
-                zone = "mid"
-            else:
-                zone = "down"
-            self.animator.set_poke_zone(zone)
+            self.on_state_changed()
+            return
+
+        h = self.height()
+        if local_y < h * 44 // 100:    # top 44% → up
+            zone = "up"
+        elif local_y < h * 74 // 100:  # mid 30% (44%–74%)
+            zone = "mid"
+        else:
+            zone = "down"
+
+        now = time.monotonic()
+        is_double = (
+            zone == "up"
+            and self._last_click_zone == "up"
+            and (now - self._last_click_time) * 1000 < self.DOUBLE_CLICK_MS
+            and self.animator.has_animation("poke/up_double")
+        )
+        self._last_click_time = now
+        self._last_click_zone = None if is_double else zone  # reset after double so triple doesn't chain
+
+        # Double-click interrupts current poke; single-click only fires when not temporary
+        if is_double or not self.state_machine.is_temporary:
+            return_to = (
+                self.state_machine.return_state
+                if self.state_machine.is_temporary
+                else self.state_machine.state
+            )
+            self.animator.set_poke_zone("up_double" if is_double else zone)
             if self.animator.has_poke_animation():
                 self.state_machine.transition_to(
-                    State.POKE, temporary=True, return_to=self.state_machine.state
+                    State.POKE, temporary=True, return_to=return_to
                 )
-        self.on_state_changed()
+            self.on_state_changed()
 
     def _on_drag_start(self) -> None:
         if not self.state_machine.is_temporary and self.animator.has_animation(State.DRAG):
