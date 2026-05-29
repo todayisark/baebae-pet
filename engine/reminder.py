@@ -17,7 +17,7 @@ class ReminderBubble(QWidget):
 
     dismissed = Signal()
 
-    AUTO_DISMISS_MS = 30_000  # 30 seconds
+    AUTO_DISMISS_MS = 15_000  # 15 seconds
 
     def __init__(
         self,

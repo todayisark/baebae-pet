@@ -106,6 +106,9 @@ class ActivityMonitor:
         if self._ms_listener:
             self._ms_listener.stop()
 
+    def reset_work_timer(self) -> None:
+        self._work_start = time.monotonic()
+
     # -------------------------------------------------------------------------
     # pynput callbacks (non-macOS background threads)
     # -------------------------------------------------------------------------

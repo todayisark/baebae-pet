@@ -28,7 +28,19 @@
     "poke": {
       "fps": 8
     },
+    "poke/up": {
+      "fps": 8
+    },
+    "poke/mid": {
+      "fps": 7
+    },
+    "poke/down": {
+      "fps": 8
+    },
     "drag": {
+      "fps": 8
+    },
+    "drag_long": {
       "fps": 8
     }
   }

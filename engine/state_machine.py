@@ -15,6 +15,7 @@ class State(str, Enum):
     REMIND = "remind"
     POKE = "poke"
     DRAG = "drag"
+    DRAG_LONG = "drag_long"
 
 
 # States that play once and automatically restore to the previous state

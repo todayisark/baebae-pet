@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -110,6 +109,10 @@ class PetController:
         if self.state_machine.is_temporary:
             return
 
+        # Never interrupt states that haven't completed their minimum play time
+        if self.window.is_in_minimum_play_period():
+            return
+
         idle = self.monitor.idle_seconds
         typing_idle = self.monitor.typing_idle_seconds
         remind_s = self.settings.get("remind_interval_minutes", 60) * 60
@@ -138,11 +141,13 @@ class PetController:
         # ── 3. Sleep ──────────────────────────────────────────────────────────
         if idle >= SLEEP_TIMEOUT_S and state != State.SLEEP:
             if self.animator.has_animation(State.SLEEP):
+                self.monitor.reset_work_timer()
                 self._go(State.SLEEP)
             return
 
         # ── 4. Wake from sleep on any activity ───────────────────────────────
         if state == State.SLEEP and self.monitor.is_active:
+            self.monitor.reset_work_timer()
             self._go(State.IDLE)
             return
 
@@ -231,8 +236,7 @@ class PetController:
         """Handle dismissal for both rest and meal reminder bubbles."""
         if self._active_reminder_state == State.REMIND:
             self._remind_shown = False
-            # Force work_seconds to reset by resetting _work_start
-            self.monitor._work_start = time.monotonic()
+            self.monitor.reset_work_timer()
         self._active_reminder_state = None
 
     def stop(self) -> None:

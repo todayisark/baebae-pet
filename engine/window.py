@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import tempfile
 import webbrowser
@@ -50,6 +51,15 @@ class PetWindow(QWidget):
 
     MANUAL_PREVIEW_RETURN_MS = 3000  # ms before preview snaps back
 
+    # Minimum play duration (seconds) per state. Frame count is read at runtime
+    # so user-replaced assets with different frame counts are handled correctly.
+    _MIN_PLAY_SECONDS: dict = {
+        State.MEAL: 10.0,
+        State.REMIND: 10.0,
+        State.POKE: 3.0,
+        State.IDLE_RANDOM: 5.0,
+    }
+
     def __init__(
         self,
         animator: Animator,
@@ -68,6 +78,7 @@ class PetWindow(QWidget):
         self.on_remind_dismissed: Callable[[], None] | None = None
 
         self._frame_index = 0
+        self._min_loops_remaining: int = 0
         self._drag_start_global: QPoint | None = None
         self._drag_window_start: QPoint | None = None
         self._press_local_y: int = 0
@@ -79,6 +90,10 @@ class PetWindow(QWidget):
         self._preview_restore_timer = QTimer(self)
         self._preview_restore_timer.setSingleShot(True)
         self._preview_restore_timer.timeout.connect(self._on_preview_restore)
+
+        self._long_drag_timer = QTimer(self)
+        self._long_drag_timer.setSingleShot(True)
+        self._long_drag_timer.timeout.connect(self._on_long_drag_timer)
 
         if update_checker is not None:
             update_checker.update_available.connect(self._on_update_available)
@@ -143,11 +158,16 @@ class PetWindow(QWidget):
         # Advance frame
         self._frame_index = (self._frame_index + 1) % anim.frame_count
 
-        # One-shot states restore after one full loop
+        # On each completed loop, consume one unit of the minimum-play counter
+        if self._frame_index == 0 and self._min_loops_remaining > 0:
+            self._min_loops_remaining -= 1
+
+        # One-shot states restore only after minimum loops are exhausted
         if self._frame_index == 0 and self.state_machine.is_temporary:
             if self.state_machine.state in ONE_SHOT_STATES:
-                self.state_machine.restore()
-                self._frame_index = 0
+                if self._min_loops_remaining == 0:
+                    self.state_machine.restore()
+                    self._frame_index = 0
 
         self._sync_window_size()
         self.update()
@@ -183,9 +203,24 @@ class PetWindow(QWidget):
 
     def on_state_changed(self) -> None:
         self._frame_index = 0
+        self._min_loops_remaining = self._compute_min_loops()
         self._sync_window_size()
         self.update()
         self._reschedule()
+
+    def _compute_min_loops(self) -> int:
+        """Return the minimum number of full loops required for the current state."""
+        state = self.state_machine.state
+        min_s = self._MIN_PLAY_SECONDS.get(state, 0.0)
+        if min_s <= 0:
+            return 0
+        anim = self.animator.get_animation(state)
+        cycle_s = anim.frame_count / anim.fps
+        return math.ceil(min_s / cycle_s)
+
+    def is_in_minimum_play_period(self) -> bool:
+        """True while the current state has not yet completed its minimum loops."""
+        return self._min_loops_remaining > 0
 
     # -------------------------------------------------------------------------
     # Mouse events
@@ -249,9 +284,22 @@ class PetWindow(QWidget):
                 State.DRAG, temporary=True, return_to=self.state_machine.state
             )
             self.on_state_changed()
+            self._long_drag_timer.start(5000)
+
+    def _on_long_drag_timer(self) -> None:
+        if self.state_machine.state != State.DRAG:
+            return
+        if not self.animator.has_animation(State.DRAG_LONG):
+            return
+        return_to = self.state_machine.return_state
+        self.state_machine.transition_to(
+            State.DRAG_LONG, temporary=True, return_to=return_to
+        )
+        self.on_state_changed()
 
     def _on_drag_end(self) -> None:
-        if self.state_machine.state == State.DRAG:
+        self._long_drag_timer.stop()
+        if self.state_machine.state in (State.DRAG, State.DRAG_LONG):
             self.state_machine.restore()
             self.on_state_changed()
 
@@ -291,8 +339,8 @@ class PetWindow(QWidget):
 
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
-            if state == State.IDLE_RANDOM:
-                continue  # internal state; not user-previewable
+            if state in (State.IDLE_RANDOM, State.DRAG_LONG):
+                continue  # internal states; not user-previewable
 
             if state == State.IDLE and self.animator.idle_variants:
                 sub = preview_menu.addMenu(self._state_label(state))
