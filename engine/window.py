@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QPoint, Qt, QTime, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QPainter
+from PySide6.QtGui import QBitmap, QDesktopServices, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -170,6 +170,7 @@ class PetWindow(QWidget):
                     self._frame_index = 0
 
         self._sync_window_size()
+        self._update_window_mask()
         self.update()
         self._reschedule()
 
@@ -205,6 +206,7 @@ class PetWindow(QWidget):
         self._frame_index = 0
         self._min_loops_remaining = self._compute_min_loops()
         self._sync_window_size()
+        self._update_window_mask()
         self.update()
         self._reschedule()
 
@@ -225,6 +227,11 @@ class PetWindow(QWidget):
     # -------------------------------------------------------------------------
     # Mouse events
     # -------------------------------------------------------------------------
+
+    def _update_window_mask(self) -> None:
+        anim = self.animator.get_animation(self.state_machine.state)
+        frame = anim.get_frame(self._frame_index)
+        self.setMask(QBitmap.fromImage(frame.toImage().createAlphaMask()))
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
