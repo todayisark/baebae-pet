@@ -40,6 +40,9 @@
     "drag": {
       "fps": 8
     },
+    "drag_fast": {
+      "fps": 8
+    },
     "drag_long": {
       "fps": 8
     }

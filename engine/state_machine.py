@@ -15,6 +15,7 @@ class State(str, Enum):
     REMIND = "remind"
     POKE = "poke"
     DRAG = "drag"
+    DRAG_FAST = "drag_fast"
     DRAG_LONG = "drag_long"
 
 

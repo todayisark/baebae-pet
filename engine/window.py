@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import math
 import shutil
+import time
+from collections import deque
 import tempfile
 import webbrowser
 import zipfile
@@ -50,6 +52,8 @@ class PetWindow(QWidget):
     """
 
     MANUAL_PREVIEW_RETURN_MS = 3000  # ms before preview snaps back
+    DRAG_FAST_THRESHOLD_PX_S = 600   # pixels/second to be considered "fast drag"
+    DRAG_VEL_WINDOW_S = 0.15         # velocity averaging window in seconds
 
     # Minimum play duration (seconds) per state. Frame count is read at runtime
     # so user-replaced assets with different frame counts are handled correctly.
@@ -83,6 +87,9 @@ class PetWindow(QWidget):
         self._drag_window_start: QPoint | None = None
         self._press_local_y: int = 0
         self._dragging = False
+        self._drag_is_long: bool = False
+        self._drag_is_fast: bool = False
+        self._drag_vel_samples: deque = deque()  # (monotonic_time, QPoint)
         self._reminder_bubble: ReminderBubble | None = None
         self._update_bubble: UpdateBubble | None = None
         self._update_checker = update_checker
@@ -251,6 +258,7 @@ class PetWindow(QWidget):
             self._on_drag_start()
         if self._dragging:
             self.move(self._drag_window_start + delta)
+            self._update_drag_velocity(event.globalPosition().toPoint())
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() != Qt.MouseButton.LeftButton:
@@ -287,6 +295,9 @@ class PetWindow(QWidget):
 
     def _on_drag_start(self) -> None:
         if not self.state_machine.is_temporary and self.animator.has_animation(State.DRAG):
+            self._drag_is_long = False
+            self._drag_is_fast = False
+            self._drag_vel_samples.clear()
             self.state_machine.transition_to(
                 State.DRAG, temporary=True, return_to=self.state_machine.state
             )
@@ -294,21 +305,61 @@ class PetWindow(QWidget):
             self._long_drag_timer.start(5000)
 
     def _on_long_drag_timer(self) -> None:
-        if self.state_machine.state != State.DRAG:
+        if not self._dragging:
             return
-        if not self.animator.has_animation(State.DRAG_LONG):
-            return
-        return_to = self.state_machine.return_state
-        self.state_machine.transition_to(
-            State.DRAG_LONG, temporary=True, return_to=return_to
-        )
-        self.on_state_changed()
+        self._drag_is_long = True
+        self._apply_drag_state()
 
     def _on_drag_end(self) -> None:
         self._long_drag_timer.stop()
-        if self.state_machine.state in (State.DRAG, State.DRAG_LONG):
+        self._drag_vel_samples.clear()
+        _drag_states = (State.DRAG, State.DRAG_FAST, State.DRAG_LONG)
+        if self.state_machine.state in _drag_states:
             self.state_machine.restore()
             self.on_state_changed()
+
+    def _update_drag_velocity(self, global_pos: QPoint) -> None:
+        now = time.monotonic()
+        self._drag_vel_samples.append((now, global_pos))
+        cutoff = now - self.DRAG_VEL_WINDOW_S
+        while self._drag_vel_samples and self._drag_vel_samples[0][0] < cutoff:
+            self._drag_vel_samples.popleft()
+
+        if len(self._drag_vel_samples) >= 2:
+            t0, p0 = self._drag_vel_samples[0]
+            t1, p1 = self._drag_vel_samples[-1]
+            dt = t1 - t0
+            if dt > 0:
+                dx = p1.x() - p0.x()
+                dy = p1.y() - p0.y()
+                speed = (dx * dx + dy * dy) ** 0.5 / dt
+                new_fast = speed >= self.DRAG_FAST_THRESHOLD_PX_S
+                if new_fast != self._drag_is_fast:
+                    self._drag_is_fast = new_fast
+                    self._apply_drag_state()
+
+    def _drag_target_state(self) -> State:
+        """Return the best available drag state for current phase and speed, with fallback."""
+        if self._drag_is_long:
+            candidates = [State.DRAG_LONG, State.DRAG]
+        else:
+            candidates = (
+                [State.DRAG_FAST, State.DRAG]
+                if self._drag_is_fast
+                else [State.DRAG]
+            )
+        for state in candidates:
+            if self.animator.has_animation(state):
+                return state
+        return State.DRAG
+
+    def _apply_drag_state(self) -> None:
+        target = self._drag_target_state()
+        if self.state_machine.state == target:
+            return
+        return_to = self.state_machine.return_state
+        self.state_machine.transition_to(target, temporary=True, return_to=return_to)
+        self.on_state_changed()
 
     # -------------------------------------------------------------------------
     # Reminder bubble
@@ -346,7 +397,7 @@ class PetWindow(QWidget):
 
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
-            if state in (State.IDLE_RANDOM, State.DRAG_LONG):
+            if state in (State.IDLE_RANDOM, State.DRAG_FAST, State.DRAG_LONG):
                 continue  # internal states; not user-previewable
 
             if state == State.IDLE and self.animator.idle_variants:
