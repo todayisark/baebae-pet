@@ -4,69 +4,23 @@
 
 ## 中文
 
-Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包，而不是复杂 AI 助手或高性能 3D 系统。
+Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包。
 
 当前项目仍处于 beta / testing 阶段。
 
-**最新版本：v0.3.0-beta** · [下载](https://github.com/todayisark/baebae-pet/releases/latest)
+🎉 **最新版本：v0.3.0-beta** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+
+![Baebae Pet 待机效果](1.png)
 
 ### 功能
 
 - 透明、无边框、可拖拽的桌面宠物窗口
 - macOS 原生置顶处理，支持跨 Space 和全屏辅助窗口；Windows 同样支持置顶
-- PNG 帧动画系统，每个状态一个目录
-- 键盘输入感知：打字、专注打字、停止打字后恢复 idle
-- 鼠标和妙控板点击不会触发 typing
-- 点击回应、拖拽状态、右键菜单
-- 休息提醒气泡，确认后重置计时
-- 吃饭提醒：可指定三个本地时间，到点切换吃饭动画并弹出提醒
-- 自动更新检测：启动时检查新版本，有更新时显示提醒气泡
-- 导入 `.zip` 素材包
-- 打开当前宠物的本地素材目录，方便直接查看或替换图片
-- 导出模板素材包到 `~/Downloads/pet_template.zip`，方便基于示例图制作自己的宠物
-- Dock 图标自动从当前宠物的 `idle/0.png` 读取
-- 右键菜单支持中文 / English 切换
+- 键盘输入感知、点击回应、拖拽状态、右键菜单
+- 可导入 `.zip` 素材包
+- 支持中文 / English 切换
 - 首次启动引导界面，支持导入素材包、直接使用模板或导出模板后自定义
-
-### 状态
-
-| 状态          | 说明                 |
-| ------------- | -------------------- |
-| `idle`        | 待机                 |
-| `typing`      | 检测到键盘输入       |
-| `typing_flow` | 连续输入达到专注阈值 |
-| `sleep`       | 长时间无活动         |
-| `meal`        | 吃饭提醒             |
-| `jump`        | 启动动画             |
-| `remind`      | 休息提醒             |
-| `poke`        | 点击回应             |
-| `drag`        | 拖拽中               |
-
-所有状态根据素材是否存在自动启用或禁用——只要对应文件夹存在且有 PNG 帧，该状态就会生效，无需手动配置。
-
-#### idle 子动作
-
-在 `idle/` 目录下创建子文件夹可以添加随机待机动作，程序每隔 3 分钟随机播放一个（播完后自动回到默认待机）。`idle/` 根目录的帧始终作为默认待机循环。
-
-推荐命名：使用描述动作的英文小写词，例如：
-
-```text
-idle/
-├── 0.png         ← 默认待机帧（循环播放）
-├── 1.png
-├── ...
-├── stretch/      ← 伸懒腰
-├── yawn/         ← 打哈欠
-├── look_around/  ← 四处张望
-├── sneeze/       ← 打喷嚏
-└── wave/         ← 挥手
-```
-
-子文件夹的 FPS 可以在 `manifest.json` 中单独指定，键名为 `"idle/stretch"`（以此类推）；若未指定则默认 10 FPS。
-
-#### poke 分区
-
-点击宠物时，程序会根据点击位置将画面分为上中下三段，分别在 `poke/up/`、`poke/mid/`、`poke/down/` 中查找对应动画。若某个区域没有素材，则回退到 `poke/` 根目录的默认 poke 动画。三个子文件夹都是可选的，可以只提供其中几个。
+- 修改设置界面，调整语言、大小、透明度、休息提醒和吃饭提醒
 
 ### 安装和运行
 
@@ -110,6 +64,8 @@ python main.py
 - 导入已有的 `.zip` 素材包
 - 切换界面语言（中文 / English）
 
+![首次启动](3.png)
+
 启动后宠物出现在桌面上。**右键宠物**可以打开菜单：
 
 - 预览不同状态动画
@@ -120,6 +76,10 @@ python main.py
 - 打开设置窗口，调整语言、大小、透明度、休息提醒和吃饭提醒
 - 清除所有数据
 - 退出程序
+
+![右键菜单](2.png)
+
+![设置界面](4.png)
 
 ### 素材包
 
@@ -191,7 +151,7 @@ my_pet/
 }
 ```
 
-子动作和 poke 分区的 FPS 可以在 `manifest.json` 中单独指定，未指定则默认 10 FPS。帧文件按数字顺序加载，建议使用透明背景 PNG。
+子动作和 poke 分区的 FPS 可以在 `manifest.json` 中单独指定，未指定则默认 8 FPS。帧文件按数字顺序加载，建议使用透明背景 PNG。
 
 ### 开发
 
@@ -245,12 +205,19 @@ baebae-pet/
 
 当前代码可以用 PyInstaller 分别生成 macOS 和 Windows beta 包：
 
-| 平台 | 包名 | 压缩后大小 |
-| ---- | ---- | ---------- |
-| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB |
-| Windows (x64) | `Snappy Pet Beta.exe` | — |
+| 平台                  | 包名                  | 压缩后大小 |
+| --------------------- | --------------------- | ---------- |
+| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB     |
+| Windows (x64)         | `Snappy Pet Beta.exe` | —          |
 
 macOS beta 包为 ad-hoc 签名，首次运行或更新后可能需要重新添加辅助功能权限。正式分发前还需要 Developer ID 签名和 notarization 流程。
+
+### 鸣谢
+
+本项目角色精灵图素材使用 EmoteLab 制作。
+
+感谢 EmoteLab 作者：
+https://github.com/0x4682b4
 
 ### License
 
@@ -260,69 +227,23 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## English
 
-Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs instead of complex AI assistant behavior or heavy 3D rendering.
+Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs.
 
 The project is currently in beta / testing.
 
-**Latest release: v0.3.0-beta** · [Download](https://github.com/todayisark/baebae-pet/releases/latest)
+🎉 **Latest release: v0.3.0-beta** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+
+![Baebae Pet idle](1.png)
 
 ### Features
 
 - Transparent, frameless, draggable desktop pet window
 - Native macOS always-on-top handling with Spaces and fullscreen support; always-on-top also supported on Windows
-- PNG frame animation system, one folder per state
-- Keyboard-aware states: typing, typing flow, and idle after typing stops
-- Mouse and trackpad clicks do not trigger typing
-- Click reaction, drag state, and context menu
-- Break reminder bubble with dismiss/reset behavior
-- Meal reminders: configure three local wall-clock times for meal animation and a reminder bubble
-- Auto update checker: detects new releases on startup and shows an update bubble
+- Keyboard activity detection, click reaction, drag state, and context menu
 - Import `.zip` pet packs
-- Open the current pet's local asset folder for quick inspection or image replacement
-- Export template pack to `~/Downloads/pet_template.zip` for customization
-- Dock icon automatically set from the active pet's `idle/0.png`
-- Context menu language switch between Chinese and English
+- Chinese / English language switch
 - First-run onboarding with options to import a pack, use the bundled template directly, or export the template for customization
-
-### States
-
-| State         | Meaning                                       |
-| ------------- | --------------------------------------------- |
-| `idle`        | Idle                                          |
-| `typing`      | Keyboard input detected                       |
-| `typing_flow` | Continuous typing reached the focus threshold |
-| `sleep`       | Long inactivity                               |
-| `meal`        | Meal reminder                                 |
-| `jump`        | Startup animation                             |
-| `remind`      | Break reminder                                |
-| `poke`        | Click reaction                                |
-| `drag`        | Dragging                                      |
-
-All states are auto-enabled or disabled based on whether the asset folder exists and contains PNG frames — no manual configuration required.
-
-#### Idle sub-actions
-
-Create sub-folders inside `idle/` to add random idle animations. The app picks one randomly every 3 minutes, plays it once, then returns to the default idle loop. Frames in the `idle/` root are always used as the default idle loop.
-
-Suggested naming — use short, lowercase English action words:
-
-```text
-idle/
-├── 0.png         ← default idle frames (looping)
-├── 1.png
-├── ...
-├── stretch/      ← stretch
-├── yawn/         ← yawn
-├── look_around/  ← look around
-├── sneeze/       ← sneeze
-└── wave/         ← wave
-```
-
-Sub-folder FPS can be set in `manifest.json` using the key `"idle/stretch"` (and so on); defaults to 10 FPS if omitted.
-
-#### Poke zones
-
-When the pet is clicked, the app divides the window into three vertical zones and looks for animations in `poke/up/`, `poke/mid/`, and `poke/down/`. If a zone has no assets, it falls back to the default `poke/` animation. All three sub-folders are optional.
+- Settings window to adjust language, size, opacity, break reminders, and meal reminders
 
 ### Install And Run
 
@@ -366,6 +287,8 @@ If input monitoring does not work:
 - Import an existing `.zip` pet pack
 - Toggle the interface language (Chinese / English)
 
+![First launch](3.png)
+
 After launch, the pet appears on the desktop. **Right-click the pet** to open the menu:
 
 - Preview animation states
@@ -376,6 +299,10 @@ After launch, the pet appears on the desktop. **Right-click the pet** to open th
 - Open settings to adjust language, size, opacity, break reminders, and meal reminders
 - Clear all data
 - Quit
+
+![Context menu](2.png)
+
+![Settings window](4.png)
 
 ### Pet Packs
 
@@ -501,12 +428,19 @@ The current beta stores runtime settings and imported pet packs in the legacy di
 
 The code can be packaged with PyInstaller for both macOS and Windows:
 
-| Platform | Bundle | Compressed size |
-| -------- | ------ | --------------- |
-| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB |
-| Windows (x64) | `Snappy Pet Beta.exe` | — |
+| Platform              | Bundle                | Compressed size |
+| --------------------- | --------------------- | --------------- |
+| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB          |
+| Windows (x64)         | `Snappy Pet Beta.exe` | —               |
 
 macOS beta builds are ad-hoc signed, so macOS may require Accessibility permission again after first launch or updates. A stable release flow still needs Developer ID signing and notarization.
+
+### Acknowledgements
+
+Sprite assets used in this project were created with EmoteLab.
+
+Thanks to the creator of EmoteLab:
+https://github.com/0x4682b4
 
 ### License
 
