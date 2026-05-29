@@ -61,7 +61,6 @@ class PetWindow(QWidget):
     _MIN_PLAY_SECONDS: dict = {
         State.MEAL: 10.0,
         State.REMIND: 10.0,
-        State.POKE: 3.0,
         State.IDLE_RANDOM: 5.0,
     }
 
