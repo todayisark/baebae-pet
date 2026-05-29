@@ -1,10 +1,23 @@
+"""
+window.py — 宠物窗口（渲染 + Qt 事件接收）
+
+职责：
+  - 透明无边框置顶窗口的创建与配置
+  - 逐帧渲染动画（_tick 驱动）
+  - 将原始鼠标事件转发给 InteractionHandler
+  - 气泡（提醒 / 更新通知）的显示与生命周期管理
+  - 设置对话框、右键菜单、素材导入导出
+
+不负责：
+  - 具体的交互判断（poke 区域、双击、拖拽速度等）→ interaction.py
+  - 宏观状态切换（sleep / typing / meal 等）→ main.py / PetController
+  - 动画资源加载 → animator.py
+"""
+
 from __future__ import annotations
 
 import json
-import math
 import shutil
-import time
-from collections import deque
 import tempfile
 import webbrowser
 import zipfile
@@ -34,35 +47,24 @@ from PySide6.QtWidgets import (
 
 from engine.animator import Animator
 from engine.i18n import normalize_language, t
+from engine.interaction import InteractionHandler
 from engine.macos_window import apply_macos_always_on_top
 from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
 from engine.reminder import ReminderBubble, UpdateBubble
-from engine.state_machine import ONE_SHOT_STATES, State, StateMachine
+from engine.state_machine import State, StateMachine
 
 
 class PetWindow(QWidget):
     """
-    The transparent, frameless, always-on-top pet window.
+    透明、无边框、始终置顶的宠物窗口。
 
-    External callers should use on_state_changed() after any state transition
-    to refresh the animation immediately.
+    外部调用方在任何状态切换后都应调用 on_state_changed()，使动画立即刷新。
 
-    on_remind_dismissed: optional callback fired when the reminder bubble is
-    closed (either by user or auto-timer).  Use it to reset work timers.
+    on_remind_dismissed: 提醒气泡关闭后触发的可选回调（用户点击或自动超时均触发）。
     """
 
-    MANUAL_PREVIEW_RETURN_MS = 3000  # ms before preview snaps back
-    DRAG_FAST_THRESHOLD_PX_S = 600   # pixels/second to be considered "fast drag"
-    DRAG_VEL_WINDOW_S = 0.15         # velocity averaging window in seconds
-    POKE_UP_FOLLOWUP_MS = 2000       # window after poke/up during which next up-click triggers up_double
-
-    # Minimum play duration (seconds) per state. Frame count is read at runtime
-    # so user-replaced assets with different frame counts are handled correctly.
-    _MIN_PLAY_SECONDS: dict = {
-        State.MEAL: 10.0,
-        State.REMIND: 10.0,
-        State.IDLE_RANDOM: 5.0,
-    }
+    # 手动预览状态后自动恢复的等待时间（毫秒）
+    MANUAL_PREVIEW_RETURN_MS = 3000
 
     def __init__(
         self,
@@ -79,30 +81,36 @@ class PetWindow(QWidget):
         self.settings = settings
         self.on_reset = on_reset
 
+        # 气泡关闭后通知 PetController 重置工作计时
         self.on_remind_dismissed: Callable[[], None] | None = None
 
-        self._frame_index = 0
-        self._min_loops_remaining: int = 0
-        self._drag_start_global: QPoint | None = None
-        self._drag_window_start: QPoint | None = None
-        self._press_local_y: int = 0
-        self._dragging = False
-        self._drag_is_long: bool = False
-        self._drag_is_fast: bool = False
-        self._drag_vel_samples: deque = deque()  # (monotonic_time, QPoint)
-        self._last_click_time: float = 0.0
-        self._last_click_zone: str | None = None
+        # ── 渲染状态 ──────────────────────────────────────────────────────────
+        self._frame_index = 0  # 当前播放到第几帧
+
+        # ── 原始拖拽追踪（仅用于窗口位移，不含交互逻辑） ──────────────────────
+        self._drag_start_global: QPoint | None = None  # 按下时的全局坐标
+        self._drag_window_start: QPoint | None = None  # 按下时的窗口坐标
+        self._press_local_y: int = 0                   # 按下时的本地纵坐标（用于区域判断）
+        self._dragging = False                          # 是否已进入拖拽手势
+
+        # ── 气泡引用 ──────────────────────────────────────────────────────────
         self._reminder_bubble: ReminderBubble | None = None
         self._update_bubble: UpdateBubble | None = None
+
+        # ── 更新检查器 ────────────────────────────────────────────────────────
         self._update_checker = update_checker
         self._manual_check_pending = False
+
+        # ── 预览恢复计时器（右键菜单手动预览用） ─────────────────────────────
         self._preview_restore_timer = QTimer(self)
         self._preview_restore_timer.setSingleShot(True)
         self._preview_restore_timer.timeout.connect(self._on_preview_restore)
 
-        self._long_drag_timer = QTimer(self)
-        self._long_drag_timer.setSingleShot(True)
-        self._long_drag_timer.timeout.connect(self._on_long_drag_timer)
+        # ── 交互处理器 ────────────────────────────────────────────────────────
+        # 所有"输入 → 状态机"的有状态逻辑都在这里，窗口只负责转发事件。
+        self._interaction = InteractionHandler(
+            animator, state_machine, self.on_state_changed
+        )
 
         if update_checker is not None:
             update_checker.update_available.connect(self._on_update_available)
@@ -110,13 +118,15 @@ class PetWindow(QWidget):
             update_checker.check_failed.connect(self._on_check_failed)
 
         self._setup_window()
+
+        # 动画帧定时器，由 _reschedule() 按当前动画的 fps 动态调整间隔
         self._anim_timer = QTimer(self)
         self._anim_timer.timeout.connect(self._tick)
         self._reschedule()
 
-    # -------------------------------------------------------------------------
-    # Setup
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 窗口初始化
+    # =========================================================================
 
     def _setup_window(self) -> None:
         self.setWindowFlags(
@@ -128,12 +138,12 @@ class PetWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowOpacity(self._normalized_opacity())
 
-        # Initial size from first frame
+        # 用第 0 帧尺寸初始化窗口大小
         anim = self.animator.get_animation(self.state_machine.state)
         frame = anim.get_frame(0)
         self.resize(frame.size())
 
-        # Position: bottom-right of primary screen
+        # 默认落在屏幕右下角
         screen = QApplication.primaryScreen().geometry()
         self.move(
             screen.width() - self.width() - 40,
@@ -145,6 +155,7 @@ class PetWindow(QWidget):
         self._apply_native_level_with_retries()
 
     def _apply_native_level_with_retries(self, attempts: int = 5) -> None:
+        """macOS 原生置顶有时在窗口首次显示时失效，最多重试 5 次。"""
         if apply_macos_always_on_top(self):
             return
         if attempts > 1:
@@ -153,30 +164,28 @@ class PetWindow(QWidget):
                 lambda: self._apply_native_level_with_retries(attempts - 1),
             )
 
-    # -------------------------------------------------------------------------
-    # Animation loop
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 动画循环
+    # =========================================================================
 
     def _reschedule(self) -> None:
+        """根据当前动画的 fps 重设帧定时器间隔。"""
         anim = self.animator.get_animation(self.state_machine.state)
         self._anim_timer.start(anim.frame_interval_ms)
 
     def _tick(self) -> None:
+        """每帧调用一次：推进帧索引，处理 one-shot 恢复，刷新显示。"""
         anim = self.animator.get_animation(self.state_machine.state)
 
-        # Advance frame
+        # 推进到下一帧，到末尾则归零（完成一轮）
         self._frame_index = (self._frame_index + 1) % anim.frame_count
 
-        # On each completed loop, consume one unit of the minimum-play counter
-        if self._frame_index == 0 and self._min_loops_remaining > 0:
-            self._min_loops_remaining -= 1
-
-        # One-shot states restore only after minimum loops are exhausted
-        if self._frame_index == 0 and self.state_machine.is_temporary:
-            if self.state_machine.state in ONE_SHOT_STATES:
-                if self._min_loops_remaining == 0:
-                    self.state_machine.restore()
-                    self._frame_index = 0
+        # 一轮播完时通知交互层（处理最低播放计数和 one-shot restore）
+        if self._frame_index == 0:
+            restored = self._interaction.on_loop_completed()
+            if restored:
+                # 状态已 restore，帧索引重置到新状态的起点
+                self._frame_index = 0
 
         self._sync_window_size()
         self._update_window_mask()
@@ -184,7 +193,7 @@ class PetWindow(QWidget):
         self._reschedule()
 
     def _sync_window_size(self) -> None:
-        """Resize window keeping bottom-center anchor fixed."""
+        """若当前帧尺寸发生变化，以底部中心为锚点调整窗口大小和位置。"""
         anim = self.animator.get_animation(self.state_machine.state)
         frame = anim.get_frame(self._frame_index)
         new_size = frame.size()
@@ -197,9 +206,21 @@ class PetWindow(QWidget):
         self.move(cx - new_size.width() // 2, bottom - new_size.height())
         self._apply_native_level_with_retries()
 
-    # -------------------------------------------------------------------------
-    # Paint
-    # -------------------------------------------------------------------------
+    def _update_window_mask(self) -> None:
+        """
+        根据当前帧的 alpha 通道更新窗口点击区域遮罩。
+
+        透明像素（alpha ≈ 0）对应 bit=0，点击穿透到下层窗口；
+        不透明像素对应 bit=1，正常接收鼠标事件。
+        此方法在 OS 层生效，不依赖 Qt 事件传递。
+        """
+        anim = self.animator.get_animation(self.state_machine.state)
+        frame = anim.get_frame(self._frame_index)
+        self.setMask(QBitmap.fromImage(frame.toImage().createAlphaMask()))
+
+    # =========================================================================
+    # 渲染
+    # =========================================================================
 
     def paintEvent(self, event) -> None:
         anim = self.animator.get_animation(self.state_machine.state)
@@ -207,43 +228,37 @@ class PetWindow(QWidget):
         painter = QPainter(self)
         painter.drawPixmap(0, 0, frame)
 
-    # -------------------------------------------------------------------------
-    # Public: notify window that state changed externally
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 外部调用：状态已在外部切换，通知窗口刷新
+    # =========================================================================
 
     def on_state_changed(self) -> None:
+        """
+        状态机状态切换后调用此方法（无论是外部触发还是交互层触发）。
+        重置帧索引、重算最低播放轮数、刷新显示。
+        """
         self._frame_index = 0
-        self._min_loops_remaining = self._compute_min_loops()
+        # 通知交互层重新计算当前状态的最低播放轮数
+        self._interaction.recompute_min_loops()
         self._sync_window_size()
         self._update_window_mask()
         self.update()
         self._reschedule()
 
-    def _compute_min_loops(self) -> int:
-        """Return the minimum number of full loops required for the current state."""
-        state = self.state_machine.state
-        min_s = self._MIN_PLAY_SECONDS.get(state, 0.0)
-        if min_s <= 0:
-            return 0
-        anim = self.animator.get_animation(state)
-        cycle_s = anim.frame_count / anim.fps
-        return math.ceil(min_s / cycle_s)
-
     def is_in_minimum_play_period(self) -> bool:
-        """True while the current state has not yet completed its minimum loops."""
-        return self._min_loops_remaining > 0
+        """
+        当前状态是否仍在最低播放期内。
+        PetController._tick() 调用此方法决定是否暂缓宏观状态切换。
+        """
+        return self._interaction.is_in_minimum_play_period()
 
-    # -------------------------------------------------------------------------
-    # Mouse events
-    # -------------------------------------------------------------------------
-
-    def _update_window_mask(self) -> None:
-        anim = self.animator.get_animation(self.state_machine.state)
-        frame = anim.get_frame(self._frame_index)
-        self.setMask(QBitmap.fromImage(frame.toImage().createAlphaMask()))
+    # =========================================================================
+    # 鼠标事件（只处理原始几何，交互逻辑转发给 InteractionHandler）
+    # =========================================================================
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            # 记录按下位置，用于判断是否进入拖拽以及单击的区域
             self._drag_start_global = event.globalPosition().toPoint()
             self._drag_window_start = self.pos()
             self._press_local_y = int(event.position().y())
@@ -255,12 +270,14 @@ class PetWindow(QWidget):
         if self._drag_start_global is None:
             return
         delta = event.globalPosition().toPoint() - self._drag_start_global
+        # 超过 3px 死区才正式进入拖拽
         if not self._dragging and (abs(delta.x()) > 3 or abs(delta.y()) > 3):
             self._dragging = True
-            self._on_drag_start()
+            self._interaction.on_drag_start()
         if self._dragging:
             self.move(self._drag_window_start + delta)
-            self._update_drag_velocity(event.globalPosition().toPoint())
+            # 将当前位置传给交互层做速度采样
+            self._interaction.on_drag_velocity(event.globalPosition().toPoint())
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() != Qt.MouseButton.LeftButton:
@@ -269,125 +286,17 @@ class PetWindow(QWidget):
         self._drag_start_global = None
         self._dragging = False
         if was_dragging:
-            self._on_drag_end()
+            self._interaction.on_drag_end()
         else:
-            self._on_click(self._press_local_y)
+            # 未发生拖拽，视为点击
+            self._interaction.on_click(self._press_local_y, self.height())
 
-    # -------------------------------------------------------------------------
-    # Interaction handlers
-    # -------------------------------------------------------------------------
-
-    def _on_click(self, local_y: int = 0) -> None:
-        if self.state_machine.state == State.SLEEP:
-            self.state_machine.transition_to(State.IDLE)
-            self.on_state_changed()
-            return
-
-        h = self.height()
-        if local_y < h * 44 // 100:    # top 44% → up
-            zone = "up"
-        elif local_y < h * 74 // 100:  # mid 30% (44%–74%)
-            zone = "mid"
-        else:
-            zone = "down"
-
-        now = time.monotonic()
-        is_double = (
-            zone == "up"
-            and self._last_click_zone == "up"
-            and (now - self._last_click_time) * 1000 < self.POKE_UP_FOLLOWUP_MS
-            and self.animator.has_animation("poke/up_double")
-        )
-        self._last_click_time = now
-        self._last_click_zone = None if is_double else zone  # reset after double so triple doesn't chain
-
-        # Double-click interrupts current poke; single-click only fires when not temporary
-        if is_double or not self.state_machine.is_temporary:
-            return_to = (
-                self.state_machine.return_state
-                if self.state_machine.is_temporary
-                else self.state_machine.state
-            )
-            self.animator.set_poke_zone("up_double" if is_double else zone)
-            if self.animator.has_poke_animation():
-                self.state_machine.transition_to(
-                    State.POKE, temporary=True, return_to=return_to
-                )
-            self.on_state_changed()
-
-    def _on_drag_start(self) -> None:
-        if not self.state_machine.is_temporary and self.animator.has_animation(State.DRAG):
-            self._drag_is_long = False
-            self._drag_is_fast = False
-            self._drag_vel_samples.clear()
-            self.state_machine.transition_to(
-                State.DRAG, temporary=True, return_to=self.state_machine.state
-            )
-            self.on_state_changed()
-            self._long_drag_timer.start(5000)
-
-    def _on_long_drag_timer(self) -> None:
-        if not self._dragging:
-            return
-        self._drag_is_long = True
-        self._apply_drag_state()
-
-    def _on_drag_end(self) -> None:
-        self._long_drag_timer.stop()
-        self._drag_vel_samples.clear()
-        _drag_states = (State.DRAG, State.DRAG_FAST, State.DRAG_LONG)
-        if self.state_machine.state in _drag_states:
-            self.state_machine.restore()
-            self.on_state_changed()
-
-    def _update_drag_velocity(self, global_pos: QPoint) -> None:
-        now = time.monotonic()
-        self._drag_vel_samples.append((now, global_pos))
-        cutoff = now - self.DRAG_VEL_WINDOW_S
-        while self._drag_vel_samples and self._drag_vel_samples[0][0] < cutoff:
-            self._drag_vel_samples.popleft()
-
-        if len(self._drag_vel_samples) >= 2:
-            t0, p0 = self._drag_vel_samples[0]
-            t1, p1 = self._drag_vel_samples[-1]
-            dt = t1 - t0
-            if dt > 0:
-                dx = p1.x() - p0.x()
-                dy = p1.y() - p0.y()
-                speed = (dx * dx + dy * dy) ** 0.5 / dt
-                new_fast = speed >= self.DRAG_FAST_THRESHOLD_PX_S
-                if new_fast != self._drag_is_fast:
-                    self._drag_is_fast = new_fast
-                    self._apply_drag_state()
-
-    def _drag_target_state(self) -> State:
-        """Return the best available drag state for current phase and speed, with fallback."""
-        if self._drag_is_long:
-            candidates = [State.DRAG_LONG, State.DRAG]
-        else:
-            candidates = (
-                [State.DRAG_FAST, State.DRAG]
-                if self._drag_is_fast
-                else [State.DRAG]
-            )
-        for state in candidates:
-            if self.animator.has_animation(state):
-                return state
-        return State.DRAG
-
-    def _apply_drag_state(self) -> None:
-        target = self._drag_target_state()
-        if self.state_machine.state == target:
-            return
-        return_to = self.state_machine.return_state
-        self.state_machine.transition_to(target, temporary=True, return_to=return_to)
-        self.on_state_changed()
-
-    # -------------------------------------------------------------------------
-    # Reminder bubble
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 提醒气泡
+    # =========================================================================
 
     def show_reminder(self, message: str) -> None:
+        """在宠物上方显示提醒气泡。若气泡已存在则忽略。"""
         if self._reminder_bubble is not None:
             return
         bubble = ReminderBubble(
@@ -404,25 +313,29 @@ class PetWindow(QWidget):
         self._reminder_bubble = bubble
 
     def _on_reminder_dismissed(self) -> None:
+        """气泡关闭（用户点击或 15 秒自动超时），恢复 idle 并通知外部重置计时。"""
         self._reminder_bubble = None
         self.state_machine.transition_to(State.IDLE)
         self.on_state_changed()
         if self.on_remind_dismissed:
             self.on_remind_dismissed()
 
-    # -------------------------------------------------------------------------
-    # Context menu
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 右键菜单
+    # =========================================================================
 
     def _show_context_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
 
+        # 动画预览子菜单
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
+            # 内部自动触发的状态，不暴露给用户手动预览
             if state in (State.IDLE_RANDOM, State.DRAG_FAST, State.DRAG_LONG):
-                continue  # internal states; not user-previewable
+                continue
 
             if state == State.IDLE and self.animator.idle_variants:
+                # idle 有子动作，展开子菜单
                 sub = preview_menu.addMenu(self._state_label(state))
                 a = sub.addAction(self._text("menu.preview_default"))
                 a.triggered.connect(lambda _checked: self._preview_state(State.IDLE))
@@ -433,12 +346,11 @@ class PetWindow(QWidget):
                         lambda _checked, k=variant_key: self._preview_idle_variant(k)
                     )
             elif state == State.POKE and self.animator.poke_zones:
+                # poke 有区域变体，展开子菜单
                 sub = preview_menu.addMenu(self._state_label(state))
                 if self.animator.has_animation("poke"):
                     a = sub.addAction(self._text("menu.preview_default"))
-                    a.triggered.connect(
-                        lambda _checked: self._preview_poke_zone(None)
-                    )
+                    a.triggered.connect(lambda _checked: self._preview_poke_zone(None))
                 for zone in self.animator.poke_zones:
                     a = sub.addAction(zone)
                     a.triggered.connect(
@@ -451,45 +363,31 @@ class PetWindow(QWidget):
                 )
 
         menu.addSeparator()
-        menu.addAction(self._text("menu.import_pet")).triggered.connect(
-            self._import_pet
-        )
-        menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(
-            self._open_pet_folder
-        )
-        menu.addAction(self._text("menu.export_template")).triggered.connect(
-            self._export_pet_template
-        )
+        menu.addAction(self._text("menu.import_pet")).triggered.connect(self._import_pet)
+        menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(self._open_pet_folder)
+        menu.addAction(self._text("menu.export_template")).triggered.connect(self._export_pet_template)
         menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
-        menu.addAction(self._text("menu.settings")).triggered.connect(
-            self._open_settings
-        )
-        menu.addAction(self._text("menu.check_update")).triggered.connect(
-            self._check_update
-        )
+        menu.addAction(self._text("menu.settings")).triggered.connect(self._open_settings)
+        menu.addAction(self._text("menu.check_update")).triggered.connect(self._check_update)
         menu.addSeparator()
-        menu.addAction(self._text("menu.clear_data")).triggered.connect(
-            self._clear_data
-        )
+        menu.addAction(self._text("menu.clear_data")).triggered.connect(self._clear_data)
         menu.addAction(self._text("menu.quit")).triggered.connect(QApplication.quit)
 
         menu.exec(pos)
 
-    # -------------------------------------------------------------------------
-    # Menu actions
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 预览动作（右键菜单触发）
+    # =========================================================================
 
     def _preview_state(self, state: State) -> None:
-        """Play state animation once, then return after MANUAL_PREVIEW_RETURN_MS."""
+        """手动预览某个状态，MANUAL_PREVIEW_RETURN_MS 后自动恢复。"""
         self._preview_restore_timer.stop()
-        self.state_machine.transition_to(
-            state, temporary=True, return_to=State.IDLE
-        )
+        self.state_machine.transition_to(state, temporary=True, return_to=State.IDLE)
         self.on_state_changed()
         self._preview_restore_timer.start(self.MANUAL_PREVIEW_RETURN_MS)
 
     def _preview_idle_variant(self, variant_key: str) -> None:
-        """Preview a specific idle sub-action once, then return to idle."""
+        """预览指定的 idle 子动作。"""
         self._preview_restore_timer.stop()
         self.animator.set_idle_variant(variant_key)
         self.state_machine.transition_to(
@@ -499,7 +397,7 @@ class PetWindow(QWidget):
         self._preview_restore_timer.start(self.MANUAL_PREVIEW_RETURN_MS)
 
     def _preview_poke_zone(self, zone: str | None) -> None:
-        """Preview a poke animation for a specific zone (or default if zone is None)."""
+        """预览指定区域的 poke 动画（zone=None 使用默认 poke）。"""
         self._preview_restore_timer.stop()
         self.animator.set_poke_zone(zone)
         self.state_machine.transition_to(
@@ -512,6 +410,10 @@ class PetWindow(QWidget):
         if self.state_machine.is_temporary:
             self.state_machine.restore()
             self.on_state_changed()
+
+    # =========================================================================
+    # 素材导入 / 导出
+    # =========================================================================
 
     def _import_pet(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -561,7 +463,9 @@ class PetWindow(QWidget):
 
             new_dir = cfg.get_active_pet_dir(self.settings)
             if new_dir:
+                # 替换 Animator 实例，同步通知交互层
                 self.animator = Animator(new_dir, self.settings.get("scale", 0.85))
+                self._interaction.set_animator(self.animator)
                 self.state_machine.transition_to(State.JUMP)
                 self.on_state_changed()
             QMessageBox.information(
@@ -585,7 +489,6 @@ class PetWindow(QWidget):
             QUrl.fromLocalFile(str(pet_dir))
         ):
             return
-
         QMessageBox.warning(
             self,
             self._text("dialog.open_folder_failed_title"),
@@ -601,9 +504,7 @@ class PetWindow(QWidget):
         )
         if not path:
             return
-
         from config import settings as cfg
-
         try:
             output_path = export_pet_template(
                 cfg.bundled_pet_dir("default_pet"),
@@ -623,6 +524,10 @@ class PetWindow(QWidget):
 
     def _open_manual(self) -> None:
         webbrowser.open("https://github.com/todayisark/baebae-pet#readme")
+
+    # =========================================================================
+    # 设置对话框
+    # =========================================================================
 
     def _open_settings(self) -> None:
         dialog = QDialog(self)
@@ -731,39 +636,9 @@ class PetWindow(QWidget):
         from config import settings as cfg
         cfg.save(self.settings)
 
-    def _normalized_meal_times(self) -> list[str]:
-        raw_times = self.settings.get("meal_reminder_times", [])
-        if not isinstance(raw_times, list):
-            raw_times = []
-
-        normalized: list[str] = []
-        for item in raw_times:
-            raw = str(item).strip()
-            parts = raw.split(":")
-            if len(parts) != 2:
-                continue
-            try:
-                hour = int(parts[0])
-                minute = int(parts[1])
-            except ValueError:
-                continue
-            if 0 <= hour <= 23 and 0 <= minute <= 59:
-                normalized.append(f"{hour:02d}:{minute:02d}")
-
-        defaults = ["08:00", "12:00", "18:00"]
-        return (normalized + defaults)[:3]
-
-    def _normalized_opacity(self) -> float:
-        try:
-            opacity = float(self.settings.get("opacity", 1.0))
-        except (TypeError, ValueError):
-            opacity = 1.0
-        return min(1.0, max(0.3, opacity))
-
-    def _add_hint(self, form: QFormLayout, text: str) -> None:
-        hint = QLabel(text)
-        hint.setStyleSheet("color: #666666; font-size: 11px;")
-        form.addRow("", hint)
+    # =========================================================================
+    # 更新检查
+    # =========================================================================
 
     def _check_update(self) -> None:
         if self._update_checker is None:
@@ -807,6 +682,10 @@ class PetWindow(QWidget):
         self._manual_check_pending = False
         self.show_reminder(self._text("update.failed"))
 
+    # =========================================================================
+    # 数据清除
+    # =========================================================================
+
     def _clear_data(self) -> None:
         reply = QMessageBox.question(
             self,
@@ -819,6 +698,42 @@ class PetWindow(QWidget):
             cfg.clear_all_data()
             if self.on_reset:
                 QTimer.singleShot(0, self.on_reset)
+
+    # =========================================================================
+    # 工具方法
+    # =========================================================================
+
+    def _normalized_meal_times(self) -> list[str]:
+        raw_times = self.settings.get("meal_reminder_times", [])
+        if not isinstance(raw_times, list):
+            raw_times = []
+        normalized: list[str] = []
+        for item in raw_times:
+            raw = str(item).strip()
+            parts = raw.split(":")
+            if len(parts) != 2:
+                continue
+            try:
+                hour = int(parts[0])
+                minute = int(parts[1])
+            except ValueError:
+                continue
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                normalized.append(f"{hour:02d}:{minute:02d}")
+        defaults = ["08:00", "12:00", "18:00"]
+        return (normalized + defaults)[:3]
+
+    def _normalized_opacity(self) -> float:
+        try:
+            opacity = float(self.settings.get("opacity", 1.0))
+        except (TypeError, ValueError):
+            opacity = 1.0
+        return min(1.0, max(0.3, opacity))
+
+    def _add_hint(self, form: QFormLayout, text: str) -> None:
+        hint = QLabel(text)
+        hint.setStyleSheet("color: #666666; font-size: 11px;")
+        form.addRow("", hint)
 
     def _text(self, key: str, **kwargs: object) -> str:
         return t(key, self.settings.get("language"), **kwargs)
