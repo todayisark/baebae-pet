@@ -54,7 +54,7 @@ class PetWindow(QWidget):
     MANUAL_PREVIEW_RETURN_MS = 3000  # ms before preview snaps back
     DRAG_FAST_THRESHOLD_PX_S = 600   # pixels/second to be considered "fast drag"
     DRAG_VEL_WINDOW_S = 0.15         # velocity averaging window in seconds
-    DOUBLE_CLICK_MS = 300            # max interval between clicks to count as double-click
+    POKE_UP_FOLLOWUP_MS = 2000       # window after poke/up during which next up-click triggers up_double
 
     # Minimum play duration (seconds) per state. Frame count is read at runtime
     # so user-replaced assets with different frame counts are handled correctly.
@@ -295,7 +295,7 @@ class PetWindow(QWidget):
         is_double = (
             zone == "up"
             and self._last_click_zone == "up"
-            and (now - self._last_click_time) * 1000 < self.DOUBLE_CLICK_MS
+            and (now - self._last_click_time) * 1000 < self.POKE_UP_FOLLOWUP_MS
             and self.animator.has_animation("poke/up_double")
         )
         self._last_click_time = now
