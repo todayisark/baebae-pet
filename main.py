@@ -59,7 +59,7 @@ class PetController:
     ) -> None:
         self.settings = settings
         self.state_machine = StateMachine()
-        self.animator = Animator(pet_dir, settings.get("scale", 0.85))
+        self.animator = Animator(pet_dir, settings.get("scale", [240, 240]))
         self.window = PetWindow(
             self.animator,
             self.state_machine,

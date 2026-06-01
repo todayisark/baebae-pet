@@ -54,6 +54,13 @@ from engine.reminder import ReminderBubble, UpdateBubble
 from engine.state_machine import State, StateMachine
 
 
+SIZE_PRESETS: list[tuple[str, tuple[int, int]]] = [
+    ("size.small", (200, 200)),
+    ("size.medium", (240, 240)),
+    ("size.large", (300, 300)),
+]
+
+
 class PetWindow(QWidget):
     """
     透明、无边框、始终置顶的宠物窗口。
@@ -149,6 +156,18 @@ class PetWindow(QWidget):
             screen.width() - self.width() - 40,
             screen.height() - self.height() - 80,
         )
+
+    def _normalized_size_setting(self) -> tuple[int, int]:
+        size = self.settings.get("scale", self.settings.get("size", (240, 240)))
+        if isinstance(size, (list, tuple)) and len(size) == 2:
+            return (max(1, int(size[0])), max(1, int(size[1])))
+
+        legacy_scale = float(size)
+        if legacy_scale <= 0.675:
+            return (200, 200)
+        if legacy_scale <= 1.025:
+            return (240, 240)
+        return (300, 300)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -546,19 +565,12 @@ class PetWindow(QWidget):
         general_form.addRow(self._text("dialog.settings_language"), language)
 
         scale = QComboBox()
-        for label_key, value in [
-            ("size.small", 0.5),
-            ("size.medium", 0.85),
-            ("size.large", 1.2),
-        ]:
+        for label_key, value in SIZE_PRESETS:
             scale.addItem(self._text(label_key), value)
-        current_scale = self.settings.get("scale", 0.85)
-        scale_values = [scale.itemData(i) for i in range(scale.count())]
-        nearest_scale = min(
-            range(len(scale_values)),
-            key=lambda i: abs(float(scale_values[i]) - float(current_scale)),
-        )
-        scale.setCurrentIndex(nearest_scale)
+        current_size = self._normalized_size_setting()
+        scale_values = [tuple(scale.itemData(i)) for i in range(scale.count())]
+        current_index = scale_values.index(current_size)
+        scale.setCurrentIndex(current_index)
         general_form.addRow(self._text("menu.size"), scale)
 
         opacity = QSpinBox()
@@ -619,7 +631,8 @@ class PetWindow(QWidget):
             return
 
         self.settings["language"] = str(language.currentData())
-        self.settings["scale"] = float(scale.currentData())
+        selected_size = tuple(scale.currentData())
+        self.settings["scale"] = list(selected_size)
         self.settings["opacity"] = opacity.value() / 100
         self.settings["remind_interval_minutes"] = rest_interval.value()
         self.settings["remind_message"] = rest_message.text()
@@ -629,7 +642,7 @@ class PetWindow(QWidget):
         ]
         self.settings["meal_reminder_message"] = meal_message.text()
 
-        self.animator.set_scale(self.settings["scale"])
+        self.animator.set_scale(selected_size)
         self.setWindowOpacity(self._normalized_opacity())
         self.on_state_changed()
 
