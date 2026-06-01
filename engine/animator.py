@@ -5,7 +5,7 @@ import random
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPainter, QPixmap
 
 from engine.state_machine import State
 
@@ -61,7 +61,7 @@ class Animator:
     Poke zones are selected by click position (managed by PetWindow).
     """
 
-    def __init__(self, pet_dir: Path, scale: float = 1.0) -> None:
+    def __init__(self, pet_dir: Path, scale: float | tuple[int, int] = 1.0) -> None:
         self.pet_dir = pet_dir
         self.scale = scale
         self._manifest: dict = {}
@@ -82,6 +82,40 @@ class Animator:
         with open(manifest_path, encoding="utf-8") as fh:
             self._manifest = json.load(fh)
 
+    def _target_frame_size(self, source_size: tuple[int, int] | None = None) -> tuple[int, int]:
+        if isinstance(self.scale, (tuple, list)) and len(self.scale) == 2:
+            return (max(1, int(self.scale[0])), max(1, int(self.scale[1])))
+
+        # Backward compatibility for previously persisted numeric scale values.
+        if source_size is not None:
+            width, height = source_size
+        else:
+            width, height = self._manifest.get("frameSize", [200, 200])
+        return (
+            max(1, round(width * float(self.scale))),
+            max(1, round(height * float(self.scale))),
+        )
+
+    def _fit_frame(self, px: QPixmap, target_size: tuple[int, int]) -> QPixmap:
+        target_w, target_h = target_size
+        scaled = px.scaled(
+            target_w,
+            target_h,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        if scaled.width() == target_w and scaled.height() == target_h:
+            return scaled
+
+        canvas = QPixmap(target_w, target_h)
+        canvas.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(canvas)
+        offset_x = (target_w - scaled.width()) // 2
+        offset_y = target_h - scaled.height()
+        painter.drawPixmap(offset_x, offset_y, scaled)
+        painter.end()
+        return canvas
+
     def _build_animation(self, key: str) -> Animation:
         """Build an Animation from pet_dir/<key>/ folder.
 
@@ -92,6 +126,7 @@ class Animator:
         anim_cfg = self._manifest.get("animations", {}).get(key, {})
         fps = anim_cfg.get("fps", 10)
         frame_size = self._manifest.get("frameSize", [200, 200])
+        target_size = self._target_frame_size((frame_size[0], frame_size[1]))
 
         frames: list[QPixmap] = []
         if anim_dir.exists():
@@ -103,20 +138,10 @@ class Animator:
                 px = QPixmap(str(png_path))
                 if px.isNull():
                     continue
-                if self.scale != 1.0:
-                    w = max(1, round(px.width() * self.scale))
-                    h = max(1, round(px.height() * self.scale))
-                    px = px.scaled(
-                        w,
-                        h,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                frames.append(px)
+                frames.append(self._fit_frame(px, target_size))
 
         if not frames:
-            w = max(1, round(frame_size[0] * self.scale))
-            h = max(1, round(frame_size[1] * self.scale))
+            w, h = target_size
             px = QPixmap(w, h)
             px.fill(Qt.GlobalColor.transparent)
             frames = [px]
@@ -218,7 +243,7 @@ class Animator:
                 )
         return self._animations[state]
 
-    def set_scale(self, scale: float) -> None:
+    def set_scale(self, scale: float | tuple[int, int]) -> None:
         self.scale = scale
         self._animations.clear()
         self._idle_variants.clear()
@@ -234,4 +259,4 @@ class Animator:
     @property
     def frame_size(self) -> tuple[int, int]:
         fw, fh = self._manifest.get("frameSize", [200, 200])
-        return (max(1, round(fw * self.scale)), max(1, round(fh * self.scale)))
+        return self._target_frame_size((fw, fh))

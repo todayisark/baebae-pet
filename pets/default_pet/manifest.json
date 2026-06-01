@@ -2,7 +2,7 @@
   "name": "pet_template",
   "author": "ark",
   "version": "0.1",
-  "frameSize": [200, 200],
+  "frameSize": [300, 300],
   "animations": {
     "idle": {
       "fps": 8
