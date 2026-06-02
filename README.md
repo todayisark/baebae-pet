@@ -6,9 +6,9 @@
 
 Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包。
 
-当前项目仍处于 beta / testing 阶段。
+✨ 正式版已上线
 
-🎉 **最新版本：v0.3.0-beta** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **最新版本：v1.0.0** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet 待机效果](1.png)
 
@@ -229,9 +229,7 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs.
 
-The project is currently in beta / testing.
-
-🎉 **Latest release: v0.3.0-beta** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **Latest release: v1.0.0** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet idle](1.png)
 
