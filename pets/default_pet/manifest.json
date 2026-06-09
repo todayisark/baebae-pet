@@ -1,5 +1,5 @@
 {
-  "name": "pet_template",
+  "name": "little-bae",
   "author": "ark",
   "version": "0.1",
   "frameSize": [300, 300],
@@ -19,7 +19,7 @@
     "meal": {
       "fps": 8
     },
-    "jump": {
+    "hello": {
       "fps": 8
     },
     "remind": {
@@ -35,7 +35,7 @@
       "fps": 8
     },
     "poke/mid": {
-      "fps": 7
+      "fps": 8
     },
     "poke/down": {
       "fps": 8
@@ -43,10 +43,10 @@
     "drag": {
       "fps": 8
     },
-    "drag_fast": {
+    "drag_3s": {
       "fps": 8
     },
-    "drag_long": {
+    "drag_5s": {
       "fps": 8
     }
   }
