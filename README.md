@@ -6,9 +6,7 @@
 
 Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包。
 
-当前项目仍处于 beta / testing 阶段。
-
-🎉 **最新版本：v0.3.0-beta** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **最新版本：v1.1.0** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet 待机效果](1.png)
 
@@ -17,7 +15,7 @@ Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Wind
 - 透明、无边框、可拖拽的桌面宠物窗口
 - macOS 原生置顶处理，支持跨 Space 和全屏辅助窗口；Windows 同样支持置顶
 - 键盘输入感知、点击回应、拖拽状态、右键菜单
-- 可导入 `.zip` 素材包
+- 可导入 `.zip` 素材包，支持多个皮肤一键切换
 - 支持中文 / English 切换
 - 首次启动引导界面，支持导入素材包、直接使用模板或导出模板后自定义
 - 修改设置界面，调整语言、大小、透明度、休息提醒和吃饭提醒
@@ -28,8 +26,8 @@ Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Wind
 
 前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 下载最新版本：
 
-- **macOS (Apple Silicon)**：下载 `baebae-pet-vX.X.X-beta-macos-arm64.zip`，解压后将 `Baebae Pet Beta.app` 拖入「应用程序」文件夹；首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
-- **Windows**：下载 `snappy-pet-vX.X.X-beta-windows-x64.zip`，解压后直接运行 `Snappy Pet Beta.exe`；若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」
+- **macOS (Apple Silicon)**：下载 `baebae-pet-v1.1.0-macos-arm64.zip`，解压后将 `Baebae Pet.app` 拖入「应用程序」文件夹；首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
+- **Windows**：下载 `baebae-v1.1.0-windows-x64.zip`，解压后直接运行 `.exe`；若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」
 
 #### 从源码运行
 
@@ -69,6 +67,7 @@ python main.py
 启动后宠物出现在桌面上。**右键宠物**可以打开菜单：
 
 - 预览不同状态动画
+- **切换宠物**（在已导入的素材包之间一键切换）
 - 导入素材包
 - 打开当前宠物的素材目录
 - 导出模板素材包
@@ -81,11 +80,21 @@ python main.py
 
 ![设置界面](4.png)
 
+### 皮肤
+
+#### little-wan
+
+![little-wan](5.png)
+
+little-wan 是官方发布的第一款公开皮肤，由 [ark](https://github.com/todayisark) 制作。
+
+> 下载：前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 页面下载 `little-wan.zip`，通过右键菜单「导入素材包」导入即可。
+
 ### 素材包
 
 素材包是一个包含 `manifest.json` 和状态目录的文件夹，可以压缩成 `.zip` 后通过右键菜单导入。
 
-如果想基于示例素材制作自己的宠物，可以在引导界面或右键菜单选择”导出模板”。程序会把模板导出到 `~/Downloads/pet_template.zip`。先解压这个 zip，替换各状态目录中的 PNG，修改 `manifest.json` 里的 `name`、`author` 和 `version`，再把素材包文件夹重新压缩为 zip 后导入。
+如果想基于示例素材制作自己的宠物，可以在引导界面或右键菜单选择"导出模板"。程序会把模板导出到 `~/Downloads/pet_template.zip`。先解压这个 zip，替换各状态目录中的 PNG，修改 `manifest.json` 里的 `name`、`author` 和 `version`，再把素材包文件夹重新压缩为 zip 后导入。
 
 示例结构：
 
@@ -103,23 +112,20 @@ my_pet/
 │       ├── 0.png
 │       └── ...
 ├── typing/
-│   ├── 0.png
-│   └── ...
 ├── typing_flow/
 ├── sleep/
 ├── meal/
-├── jump/
+├── hello/
 ├── remind/
 ├── poke/
 │   ├── 0.png         ← 默认 poke（点击任意位置回退用）
 │   ├── ...
 │   ├── up/           ← 点击上段触发（可选）
-│   │   └── 0.png
 │   ├── mid/          ← 点击中段触发（可选）
-│   │   └── 0.png
 │   └── down/         ← 点击下段触发（可选）
-│       └── 0.png
-└── drag/
+├── drag/
+├── drag_3s/          ← 拖拽满 3 秒后切换（可选）
+└── drag_5s/          ← 拖拽满 5 秒后切换（可选）
 ```
 
 **所有状态文件夹均为可选**。程序会自动检测哪些文件夹存在且有 PNG 帧，不存在则跳过该状态，无需修改 `manifest.json`。
@@ -140,13 +146,15 @@ my_pet/
     "typing_flow": { "fps": 8 },
     "sleep": { "fps": 8 },
     "meal": { "fps": 8 },
-    "jump": { "fps": 8 },
+    "hello": { "fps": 8 },
     "remind": { "fps": 8 },
     "poke": { "fps": 8 },
     "poke/up": { "fps": 8 },
     "poke/mid": { "fps": 8 },
     "poke/down": { "fps": 8 },
-    "drag": { "fps": 8 }
+    "drag": { "fps": 8 },
+    "drag_3s": { "fps": 8 },
+    "drag_5s": { "fps": 8 }
   }
 }
 ```
@@ -193,24 +201,13 @@ baebae-pet/
 
 ### 用户数据
 
-当前 beta 版本的运行时配置和导入的素材包会写入 legacy 目录：
+运行时配置和导入的素材包存储在：
 
 ```text
 ~/Library/Application Support/baebae/
 ```
 
-右键菜单中的“清除所有数据”会删除这个目录并退出程序。
-
-### 打包状态
-
-当前代码可以用 PyInstaller 分别生成 macOS 和 Windows beta 包：
-
-| 平台                  | 包名                  | 压缩后大小 |
-| --------------------- | --------------------- | ---------- |
-| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB     |
-| Windows (x64)         | `Snappy Pet Beta.exe` | —          |
-
-macOS beta 包为 ad-hoc 签名，首次运行或更新后可能需要重新添加辅助功能权限。正式分发前还需要 Developer ID 签名和 notarization 流程。
+右键菜单中的"清除所有数据"会删除这个目录并退出程序。
 
 ### 鸣谢
 
@@ -229,9 +226,7 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs.
 
-The project is currently in beta / testing.
-
-🎉 **Latest release: v0.3.0-beta** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **Latest release: v1.1.0** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet idle](1.png)
 
@@ -240,7 +235,7 @@ The project is currently in beta / testing.
 - Transparent, frameless, draggable desktop pet window
 - Native macOS always-on-top handling with Spaces and fullscreen support; always-on-top also supported on Windows
 - Keyboard activity detection, click reaction, drag state, and context menu
-- Import `.zip` pet packs
+- Import `.zip` pet packs and switch between multiple skins in one click
 - Chinese / English language switch
 - First-run onboarding with options to import a pack, use the bundled template directly, or export the template for customization
 - Settings window to adjust language, size, opacity, break reminders, and meal reminders
@@ -251,8 +246,8 @@ The project is currently in beta / testing.
 
 Go to [Releases](https://github.com/todayisark/baebae-pet/releases/latest) and download the latest build:
 
-- **macOS (Apple Silicon)**: download `baebae-pet-vX.X.X-beta-macos-arm64.zip`, unzip it, and drag `Baebae Pet Beta.app` to your Applications folder; on first launch go to **System Settings → Privacy & Security** to allow the app and enable it under **Accessibility**
-- **Windows**: download `snappy-pet-vX.X.X-beta-windows-x64.zip`, unzip it, and run `Snappy Pet Beta.exe`; if Windows SmartScreen appears, click **More info → Run anyway**
+- **macOS (Apple Silicon)**: download `baebae-pet-v1.1.0-macos-arm64.zip`, unzip it, and drag `Baebae Pet.app` to your Applications folder; on first launch go to **System Settings → Privacy & Security** to allow the app and enable it under **Accessibility**
+- **Windows**: download `baebae-v1.1.0-windows-x64.zip`, unzip it, and run the `.exe` directly; if Windows SmartScreen appears, click **More info → Run anyway**
 
 #### Run from source
 
@@ -292,6 +287,7 @@ If input monitoring does not work:
 After launch, the pet appears on the desktop. **Right-click the pet** to open the menu:
 
 - Preview animation states
+- **Switch Pet** (switch between installed packs in one click)
 - Import a pet pack
 - Open the current pet folder
 - Export a template pet pack
@@ -303,6 +299,16 @@ After launch, the pet appears on the desktop. **Right-click the pet** to open th
 ![Context menu](2.png)
 
 ![Settings window](4.png)
+
+### Skins
+
+#### little-wan
+
+![little-wan](5.png)
+
+little-wan is the first officially released public skin, created by [ark](https://github.com/todayisark).
+
+> Download: grab `little-wan.zip` from the [Releases](https://github.com/todayisark/baebae-pet/releases/latest) page and import it via the right-click menu.
 
 ### Pet Packs
 
@@ -326,23 +332,20 @@ my_pet/
 │       ├── 0.png
 │       └── ...
 ├── typing/
-│   ├── 0.png
-│   └── ...
 ├── typing_flow/
 ├── sleep/
 ├── meal/
-├── jump/
+├── hello/
 ├── remind/
 ├── poke/
 │   ├── 0.png         ← default poke fallback
 │   ├── ...
 │   ├── up/           ← top-zone click (optional)
-│   │   └── 0.png
 │   ├── mid/          ← mid-zone click (optional)
-│   │   └── 0.png
 │   └── down/         ← bottom-zone click (optional)
-│       └── 0.png
-└── drag/
+├── drag/
+├── drag_3s/          ← triggered after 3 s of dragging (optional)
+└── drag_5s/          ← triggered after 5 s of dragging (optional)
 ```
 
 **All state folders are optional.** The app automatically detects which folders exist and contain PNG frames; missing folders are silently skipped without any `manifest.json` changes required.
@@ -363,18 +366,20 @@ Example `manifest.json`:
     "typing_flow": { "fps": 8 },
     "sleep": { "fps": 8 },
     "meal": { "fps": 8 },
-    "jump": { "fps": 8 },
+    "hello": { "fps": 8 },
     "remind": { "fps": 8 },
     "poke": { "fps": 8 },
     "poke/up": { "fps": 8 },
     "poke/mid": { "fps": 8 },
     "poke/down": { "fps": 8 },
-    "drag": { "fps": 8 }
+    "drag": { "fps": 8 },
+    "drag_3s": { "fps": 8 },
+    "drag_5s": { "fps": 8 }
   }
 }
 ```
 
-FPS for sub-actions and poke zones can be set individually in `manifest.json`; defaults to 10 FPS if omitted. Frames are loaded in numeric order. Transparent PNG files are recommended.
+FPS for sub-actions and poke zones can be set individually in `manifest.json`; defaults to 8 FPS if omitted. Frames are loaded in numeric order. Transparent PNG files are recommended.
 
 ### Development
 
@@ -416,24 +421,13 @@ baebae-pet/
 
 ### User Data
 
-The current beta stores runtime settings and imported pet packs in the legacy directory:
+Runtime settings and imported pet packs are stored at:
 
 ```text
 ~/Library/Application Support/baebae/
 ```
 
 "Clear All Data" in the context menu deletes this directory and quits the app.
-
-### Packaging Status
-
-The code can be packaged with PyInstaller for both macOS and Windows:
-
-| Platform              | Bundle                | Compressed size |
-| --------------------- | --------------------- | --------------- |
-| macOS (Apple Silicon) | `Baebae Pet Beta.app` | ~32 MB          |
-| Windows (x64)         | `Snappy Pet Beta.exe` | —               |
-
-macOS beta builds are ad-hoc signed, so macOS may require Accessibility permission again after first launch or updates. A stable release flow still needs Developer ID signing and notarization.
 
 ### Acknowledgements
 
