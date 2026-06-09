@@ -6,7 +6,7 @@ interaction.py — 交互行为控制层
 包括：
   - 最低播放轮数强制（确保 MEAL / REMIND / IDLE_RANDOM 等状态播满指定秒数后才允许切走）
   - Poke 区域计算 + poke/up 二次跟随检测（一定时间窗口内再次点击上方触发 up_double）
-  - 拖拽速度采样、fast/slow 切换、长时间拖拽计时器
+  - 拖拽阶段计时器：3 秒切 fast、5 秒切 long
 
 不负责：
   - 渲染（window.py）
@@ -18,11 +18,10 @@ from __future__ import annotations
 
 import math
 import time
-from collections import deque
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QTimer
+from PySide6.QtCore import QTimer
 
 from engine.state_machine import ONE_SHOT_STATES, State
 
@@ -35,14 +34,11 @@ if TYPE_CHECKING:
 # 可调参数
 # ---------------------------------------------------------------------------
 
-# 拖拽速度阈值（像素/秒），超过此值切换到 fast drag 动画
-DRAG_FAST_THRESHOLD_PX_S: float = 600.0
-
-# 速度平均窗口（秒），用于平滑抖动
-DRAG_VEL_WINDOW_S: float = 0.15
-
 # poke/up 跟随窗口（毫秒）：第一次点 up 之后，此时间内再次点 up 触发 up_double
 POKE_UP_FOLLOWUP_MS: float = 2000.0
+
+# 持续拖拽多久（毫秒）后切换到快速拖拽动画
+FAST_DRAG_DELAY_MS: int = 3000
 
 # 持续拖拽多久（毫秒）后切换到长时间拖拽动画
 LONG_DRAG_DELAY_MS: int = 5000
@@ -89,11 +85,14 @@ class InteractionHandler:
 
         # ── 拖拽状态 ──────────────────────────────────────────────────────────
         self._drag_is_long: bool = False   # 是否已进入长时间拖拽阶段
-        self._drag_is_fast: bool = False   # 当前速度是否超过阈值
-        # 速度采样环形缓冲，元素为 (monotonic_time, QPoint)
-        self._drag_vel_samples: deque = deque()
+        self._drag_is_fast: bool = False   # 是否已进入快速拖拽阶段
 
-        # 5 秒后触发长时间拖拽切换
+        # 3 秒后切换到快速拖拽动画
+        self._fast_drag_timer = QTimer()
+        self._fast_drag_timer.setSingleShot(True)
+        self._fast_drag_timer.timeout.connect(self._on_fast_drag_timer)
+
+        # 5 秒后切换到长时间拖拽动画
         self._long_drag_timer = QTimer()
         self._long_drag_timer.setSingleShot(True)
         self._long_drag_timer.timeout.connect(self._on_long_drag_timer)
@@ -207,7 +206,7 @@ class InteractionHandler:
     def on_drag_start(self) -> None:
         """
         鼠标移动超过死区（3px）时由 PetWindow 调用，标志着拖拽手势正式开始。
-        切换到 DRAG 状态，重置所有拖拽追踪，启动长时间拖拽计时器。
+        切换到 DRAG 状态，启动 fast（3s）和 long（5s）计时器。
         """
         # 当前已在临时状态（poke / jump 等），不触发拖拽
         if self._sm.is_temporary or not self._animator.has_animation(State.DRAG):
@@ -215,47 +214,17 @@ class InteractionHandler:
 
         self._drag_is_long = False
         self._drag_is_fast = False
-        self._drag_vel_samples.clear()
 
         self._sm.transition_to(State.DRAG, temporary=True, return_to=self._sm.state)
         self._notify()
+        self._fast_drag_timer.start(FAST_DRAG_DELAY_MS)
         self._long_drag_timer.start(LONG_DRAG_DELAY_MS)
-
-    def on_drag_velocity(self, global_pos: QPoint) -> None:
-        """
-        鼠标在拖拽中移动时持续调用，维护速度滑动窗口。
-        当速度跨越阈值时在 fast/slow drag 动画之间切换。
-        """
-        now = time.monotonic()
-        self._drag_vel_samples.append((now, global_pos))
-
-        # 丢弃窗口外的旧样本
-        cutoff = now - DRAG_VEL_WINDOW_S
-        while self._drag_vel_samples and self._drag_vel_samples[0][0] < cutoff:
-            self._drag_vel_samples.popleft()
-
-        if len(self._drag_vel_samples) < 2:
-            return
-
-        t0, p0 = self._drag_vel_samples[0]
-        t1, p1 = self._drag_vel_samples[-1]
-        dt = t1 - t0
-        if dt <= 0:
-            return
-
-        dx, dy = p1.x() - p0.x(), p1.y() - p0.y()
-        speed = (dx * dx + dy * dy) ** 0.5 / dt
-
-        new_fast = speed >= DRAG_FAST_THRESHOLD_PX_S
-        if new_fast != self._drag_is_fast:
-            self._drag_is_fast = new_fast
-            self._apply_drag_state()
 
     def on_drag_end(self) -> None:
         """鼠标松开，结束拖拽，恢复拖拽前的状态。"""
+        self._fast_drag_timer.stop()
         self._long_drag_timer.stop()
-        self._drag_vel_samples.clear()
-        if self._sm.state in (State.DRAG, State.DRAG_FAST, State.DRAG_LONG):
+        if self._sm.state in (State.DRAG, State.DRAG_3S, State.DRAG_5S):
             self._sm.restore()
             self._notify()
 
@@ -263,38 +232,35 @@ class InteractionHandler:
     # 内部拖拽辅助
     # -------------------------------------------------------------------------
 
+    def _on_fast_drag_timer(self) -> None:
+        """3 秒后触发，切换到快速拖拽动画。"""
+        if self._sm.state != State.DRAG:
+            return
+        self._drag_is_fast = True
+        self._apply_drag_state()
+
     def _on_long_drag_timer(self) -> None:
-        """
-        LONG_DRAG_DELAY_MS 后触发。若用户仍在拖拽，切换到长时间拖拽动画。
-        （注意：此时可能是 DRAG 或 DRAG_FAST，都属于正常拖拽阶段。）
-        """
-        if self._sm.state not in (State.DRAG, State.DRAG_FAST):
-            return  # 计时器触发前用户已经松手
+        """5 秒后触发，切换到长时间拖拽动画。"""
+        if self._sm.state not in (State.DRAG, State.DRAG_3S):
+            return
         self._drag_is_long = True
         self._apply_drag_state()
 
     def _drag_target_state(self) -> State:
         """
-        根据当前拖拽阶段（普通/长时）和速度（fast/slow）选出最合适的状态。
+        根据当前拖拽阶段选出最合适的状态。
 
         降级规则：
-          长时 fast  → DRAG_LONG → DRAG_FAST → DRAG
-          长时 slow  → DRAG_LONG → DRAG
-          普通 fast  → DRAG_FAST → DRAG
-          普通 slow  → DRAG
+          long  → DRAG_5S → DRAG_3S → DRAG
+          fast  → DRAG_3S → DRAG
+          普通  → DRAG
         """
         if self._drag_is_long:
-            candidates = (
-                [State.DRAG_LONG, State.DRAG_FAST, State.DRAG]
-                if self._drag_is_fast
-                else [State.DRAG_LONG, State.DRAG]
-            )
+            candidates = [State.DRAG_5S, State.DRAG_3S, State.DRAG]
+        elif self._drag_is_fast:
+            candidates = [State.DRAG_3S, State.DRAG]
         else:
-            candidates = (
-                [State.DRAG_FAST, State.DRAG]
-                if self._drag_is_fast
-                else [State.DRAG]
-            )
+            candidates = [State.DRAG]
         for state in candidates:
             if self._animator.has_animation(state):
                 return state

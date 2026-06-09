@@ -76,8 +76,8 @@ class PetController:
         # Wire up reminder-dismissed callback
         self.window.on_remind_dismissed = self._on_remind_dismissed
 
-        # If jump animation is missing, skip straight to idle
-        if not self.animator.has_animation(State.JUMP):
+        # If hello animation is missing, skip straight to idle
+        if not self.animator.has_animation(State.HELLO):
             self.state_machine.transition_to(State.IDLE)
             self.window.on_state_changed()
 

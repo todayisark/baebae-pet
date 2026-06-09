@@ -295,8 +295,6 @@ class PetWindow(QWidget):
             self._interaction.on_drag_start()
         if self._dragging:
             self.move(self._drag_window_start + delta)
-            # 将当前位置传给交互层做速度采样
-            self._interaction.on_drag_velocity(event.globalPosition().toPoint())
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() != Qt.MouseButton.LeftButton:
@@ -350,7 +348,7 @@ class PetWindow(QWidget):
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
         for state in State:
             # 内部自动触发的状态，不暴露给用户手动预览
-            if state in (State.IDLE_RANDOM, State.DRAG_FAST, State.DRAG_LONG):
+            if state in (State.IDLE_RANDOM, State.DRAG_3S, State.DRAG_5S):
                 continue
 
             if state == State.IDLE and self.animator.idle_variants:
@@ -382,6 +380,17 @@ class PetWindow(QWidget):
                 )
 
         menu.addSeparator()
+        # 切换宠物子菜单
+        switch_menu = menu.addMenu(self._text("menu.switch_pet"))
+        current_pet = self.settings.get("pet", "default_pet")
+        for pet_name, pet_dir, display_name in self._list_available_pets():
+            action = switch_menu.addAction(display_name)
+            action.setCheckable(True)
+            action.setChecked(pet_name == current_pet)
+            action.triggered.connect(
+                lambda _checked, n=pet_name, d=pet_dir: self._switch_to_pet(n, d)
+            )
+
         menu.addAction(self._text("menu.import_pet")).triggered.connect(self._import_pet)
         menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(self._open_pet_folder)
         menu.addAction(self._text("menu.export_template")).triggered.connect(self._export_pet_template)
@@ -429,6 +438,41 @@ class PetWindow(QWidget):
         if self.state_machine.is_temporary:
             self.state_machine.restore()
             self.on_state_changed()
+
+    # =========================================================================
+    # 切换宠物
+    # =========================================================================
+
+    def _list_available_pets(self) -> list[tuple[str, Path, str]]:
+        """返回本地目录中所有可用宠物的 (folder_name, path, display_name) 列表。"""
+        from config import settings as cfg
+
+        pets: list[tuple[str, Path, str]] = []
+        base_dir = cfg.pets_dir()
+        if not base_dir.exists():
+            return pets
+        for d in sorted(base_dir.iterdir()):
+            if not d.is_dir() or not (d / "manifest.json").exists():
+                continue
+            try:
+                manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+                display = manifest.get("name") or d.name
+            except Exception:
+                display = d.name
+            pets.append((d.name, d, display))
+        return pets
+
+    def _switch_to_pet(self, pet_name: str, pet_dir: Path) -> None:
+        """切换到指定宠物，替换 Animator 并触发 hello 动画。"""
+        if pet_name == self.settings.get("pet"):
+            return
+        from config import settings as cfg
+        self.settings["pet"] = pet_name
+        cfg.save(self.settings)
+        self.animator = Animator(pet_dir, self.settings.get("scale", (240, 240)))
+        self._interaction.set_animator(self.animator)
+        self.state_machine.transition_to(State.HELLO, temporary=True, return_to=State.IDLE)
+        self.on_state_changed()
 
     # =========================================================================
     # 素材导入 / 导出
@@ -485,7 +529,7 @@ class PetWindow(QWidget):
                 # 替换 Animator 实例，同步通知交互层
                 self.animator = Animator(new_dir, self.settings.get("scale", 0.85))
                 self._interaction.set_animator(self.animator)
-                self.state_machine.transition_to(State.JUMP)
+                self.state_machine.transition_to(State.HELLO, temporary=True, return_to=State.IDLE)
                 self.on_state_changed()
             QMessageBox.information(
                 self,

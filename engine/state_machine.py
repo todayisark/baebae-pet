@@ -11,24 +11,24 @@ class State(str, Enum):
     TYPING_FLOW = "typing_flow"
     SLEEP = "sleep"
     MEAL = "meal"
-    JUMP = "jump"
+    HELLO = "hello"
     REMIND = "remind"
     POKE = "poke"
     DRAG = "drag"
-    DRAG_FAST = "drag_fast"
-    DRAG_LONG = "drag_long"
+    DRAG_3S = "drag_3s"
+    DRAG_5S = "drag_5s"
 
 
 # States that play once and automatically restore to the previous state
-ONE_SHOT_STATES = {State.JUMP, State.POKE, State.IDLE_RANDOM}
+ONE_SHOT_STATES = {State.HELLO, State.POKE, State.IDLE_RANDOM}
 
 
 class StateMachine:
     def __init__(self) -> None:
-        # App starts with jump animation, then auto-returns to idle
-        self._state = State.JUMP
+        # App starts with hello animation, then auto-returns to idle
+        self._state = State.HELLO
         self._return_state = State.IDLE
-        self._is_temporary = True  # JUMP is one-shot
+        self._is_temporary = True  # HELLO is one-shot
 
     # -------------------------------------------------------------------------
     # Properties

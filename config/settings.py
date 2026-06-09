@@ -47,8 +47,15 @@ def bundled_pet_dir(name: str = "default_pet") -> Path:
 def initialize() -> None:
     """Create app support directory and seed defaults on first run."""
     APP_SUPPORT.mkdir(parents=True, exist_ok=True)
-    pets_dir = APP_SUPPORT / "pets"
-    pets_dir.mkdir(exist_ok=True)
+    local_pets = APP_SUPPORT / "pets"
+    local_pets.mkdir(exist_ok=True)
+
+    # Always ensure the bundled default pet is available locally.
+    local_default = local_pets / "default_pet"
+    if not local_default.exists():
+        bundled = bundled_pet_dir("default_pet")
+        if bundled.exists():
+            shutil.copytree(bundled, local_default)
 
     settings_path = APP_SUPPORT / "settings.json"
     if not settings_path.exists():

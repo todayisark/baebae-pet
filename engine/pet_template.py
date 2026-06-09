@@ -40,15 +40,7 @@ def export_pet_template(source_pet_dir: Path, destination_zip: Path) -> Path:
             relative_path = path.relative_to(source_pet_dir)
             archive_path = Path(TEMPLATE_DIR_NAME) / relative_path
 
-            if relative_path == Path("manifest.json"):
-                manifest = json.loads(path.read_text(encoding="utf-8"))
-                manifest["name"] = TEMPLATE_DIR_NAME
-                zf.writestr(
-                    archive_path.as_posix(),
-                    json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-                )
-            else:
-                zf.write(path, archive_path.as_posix())
+            zf.write(path, archive_path.as_posix())
 
     return destination_zip
 
