@@ -6,7 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 
-APP_VERSION = "0.3.0-beta"
+APP_VERSION = "1.1.0"
 
 if sys.platform == "darwin":
     APP_SUPPORT = Path.home() / "Library" / "Application Support" / "baebae"
