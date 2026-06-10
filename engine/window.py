@@ -162,12 +162,14 @@ class PetWindow(QWidget):
         if isinstance(size, (list, tuple)) and len(size) == 2:
             return (max(1, int(size[0])), max(1, int(size[1])))
 
-        legacy_scale = float(size)
-        if legacy_scale <= 0.675:
-            return (200, 200)
-        if legacy_scale <= 1.025:
-            return (240, 240)
-        return (300, 300)
+        if isinstance(size, (int, float, str)):
+            legacy_scale = float(size)
+            if legacy_scale <= 0.675:
+                return (200, 200)
+            if legacy_scale <= 1.025:
+                return (240, 240)
+            return (300, 300)
+        return (240, 240)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -383,7 +385,6 @@ class PetWindow(QWidget):
                     lambda _checked, s=state: self._preview_state(s)
                 )
 
-        menu.addSeparator()
         # 切换宠物子菜单
         switch_menu = menu.addMenu(self._text("menu.switch_pet"))
         current_pet = self.settings.get("pet", "default_pet")
@@ -399,14 +400,15 @@ class PetWindow(QWidget):
         flip_action.setCheckable(True)
         flip_action.setChecked(self.settings.get("flip_horizontal", False))
         flip_action.triggered.connect(self._toggle_flip)
+        menu.addSeparator()
 
         menu.addAction(self._text("menu.import_pet")).triggered.connect(self._import_pet)
         menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(self._open_pet_folder)
         menu.addAction(self._text("menu.export_template")).triggered.connect(self._export_pet_template)
-        menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
         menu.addAction(self._text("menu.settings")).triggered.connect(self._open_settings)
-        menu.addAction(self._text("menu.check_update")).triggered.connect(self._check_update)
         menu.addSeparator()
+        menu.addAction(self._text("menu.manual")).triggered.connect(self._open_manual)
+        menu.addAction(self._text("menu.check_update")).triggered.connect(self._check_update)
         menu.addAction(self._text("menu.clear_data")).triggered.connect(self._clear_data)
         menu.addAction(self._text("menu.quit")).triggered.connect(QApplication.quit)
 
