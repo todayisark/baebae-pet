@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QPoint, Qt, QTime, QTimer, QUrl
-from PySide6.QtGui import QBitmap, QDesktopServices, QPainter
+from PySide6.QtGui import QBitmap, QDesktopServices, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -225,6 +225,14 @@ class PetWindow(QWidget):
         self.move(cx - new_size.width() // 2, bottom - new_size.height())
         self._apply_native_level_with_retries()
 
+    def _current_frame(self) -> QPixmap:
+        """返回当前帧，若启用水平翻转则镜像处理。"""
+        anim = self.animator.get_animation(self.state_machine.state)
+        frame = anim.get_frame(self._frame_index)
+        if self.settings.get("flip_horizontal", False):
+            frame = QPixmap.fromImage(frame.toImage().mirrored(True, False))
+        return frame
+
     def _update_window_mask(self) -> None:
         """
         根据当前帧的 alpha 通道更新窗口点击区域遮罩。
@@ -233,19 +241,15 @@ class PetWindow(QWidget):
         不透明像素对应 bit=1，正常接收鼠标事件。
         此方法在 OS 层生效，不依赖 Qt 事件传递。
         """
-        anim = self.animator.get_animation(self.state_machine.state)
-        frame = anim.get_frame(self._frame_index)
-        self.setMask(QBitmap.fromImage(frame.toImage().createAlphaMask()))
+        self.setMask(QBitmap.fromImage(self._current_frame().toImage().createAlphaMask()))
 
     # =========================================================================
     # 渲染
     # =========================================================================
 
     def paintEvent(self, event) -> None:
-        anim = self.animator.get_animation(self.state_machine.state)
-        frame = anim.get_frame(self._frame_index)
         painter = QPainter(self)
-        painter.drawPixmap(0, 0, frame)
+        painter.drawPixmap(0, 0, self._current_frame())
 
     # =========================================================================
     # 外部调用：状态已在外部切换，通知窗口刷新
@@ -391,6 +395,11 @@ class PetWindow(QWidget):
                 lambda _checked, n=pet_name, d=pet_dir: self._switch_to_pet(n, d)
             )
 
+        flip_action = menu.addAction(self._text("menu.flip_horizontal"))
+        flip_action.setCheckable(True)
+        flip_action.setChecked(self.settings.get("flip_horizontal", False))
+        flip_action.triggered.connect(self._toggle_flip)
+
         menu.addAction(self._text("menu.import_pet")).triggered.connect(self._import_pet)
         menu.addAction(self._text("menu.open_pet_folder")).triggered.connect(self._open_pet_folder)
         menu.addAction(self._text("menu.export_template")).triggered.connect(self._export_pet_template)
@@ -438,6 +447,13 @@ class PetWindow(QWidget):
         if self.state_machine.is_temporary:
             self.state_machine.restore()
             self.on_state_changed()
+
+    def _toggle_flip(self) -> None:
+        from config import settings as cfg
+        self.settings["flip_horizontal"] = not self.settings.get("flip_horizontal", False)
+        cfg.save(self.settings)
+        self._update_window_mask()
+        self.update()
 
     # =========================================================================
     # 切换宠物

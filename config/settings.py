@@ -27,6 +27,7 @@ DEFAULT_SETTINGS: dict = {
     "meal_reminder_message": "该吃饭啦！",
     "typing_flow_seconds": 20,
     "typing_flow_gap_seconds": 5,
+    "flip_horizontal": False,
 }
 
 

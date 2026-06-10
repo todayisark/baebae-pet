@@ -6,6 +6,32 @@ import time
 from collections import deque
 
 # ---------------------------------------------------------------------------
+# macOS: sleep/wake observer via NSWorkspace
+# ---------------------------------------------------------------------------
+
+_sleep_wake_observer_class = None
+
+if sys.platform == "darwin":
+    try:
+        from AppKit import NSWorkspace
+        from Foundation import NSObject
+
+        class _SleepWakeObserver(NSObject):
+            def initWithCallback_(self, callback):
+                self = super().init()
+                if self is None:
+                    return None
+                self._callback = callback
+                return self
+
+            def didWake_(self, notification):
+                self._callback()
+
+        _sleep_wake_observer_class = _SleepWakeObserver
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
 # macOS: poll HID idle time via CoreGraphics (no threads, no TSM calls)
 # ---------------------------------------------------------------------------
 
@@ -65,6 +91,9 @@ class ActivityMonitor:
         self._typing_burst_start: float | None = None
         self._work_start = time.monotonic()
 
+        # macOS sleep/wake observer
+        self._sleep_wake_observer = None
+
         # pynput state (non-macOS fallback only)
         self._kb_listener = None
         self._ms_listener = None
@@ -86,6 +115,8 @@ class ActivityMonitor:
     # -------------------------------------------------------------------------
 
     def start(self) -> None:
+        self._register_sleep_wake_observer()
+
         if _CG is not None:
             return  # macOS: polling only, no threads needed
 
@@ -101,10 +132,35 @@ class ActivityMonitor:
         self._ms_listener.start()
 
     def stop(self) -> None:
+        if self._sleep_wake_observer is not None:
+            try:
+                NSWorkspace.sharedWorkspace().notificationCenter().removeObserver_(
+                    self._sleep_wake_observer
+                )
+            except Exception:
+                pass
+            self._sleep_wake_observer = None
         if self._kb_listener:
             self._kb_listener.stop()
         if self._ms_listener:
             self._ms_listener.stop()
+
+    def _register_sleep_wake_observer(self) -> None:
+        if _sleep_wake_observer_class is None:
+            return
+        try:
+            observer = _sleep_wake_observer_class.alloc().initWithCallback_(
+                self.reset_work_timer
+            )
+            NSWorkspace.sharedWorkspace().notificationCenter().addObserver_selector_name_object_(
+                observer,
+                "didWake:",
+                "NSWorkspaceDidWakeNotification",
+                None,
+            )
+            self._sleep_wake_observer = observer
+        except Exception:
+            pass
 
     def reset_work_timer(self) -> None:
         self._work_start = time.monotonic()
