@@ -13,12 +13,13 @@ _sleep_wake_observer_class = None
 
 if sys.platform == "darwin":
     try:
+        import objc
         from AppKit import NSWorkspace
         from Foundation import NSObject
 
         class _SleepWakeObserver(NSObject):
             def initWithCallback_(self, callback):
-                self = super().init()
+                self = objc.super(_SleepWakeObserver, self).init()
                 if self is None:
                     return None
                 self._callback = callback
