@@ -6,7 +6,7 @@
 
 Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Windows。它专注于低打扰陪伴、状态动画、键盘活动感知、休息提醒和可替换素材包。
 
-🎉 **最新版本：v1.1.0** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **最新版本：v1.2.0** · [📦 立即下载](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet 待机效果](1.png)
 
@@ -26,8 +26,8 @@ Baebae Pet 是一个轻量级跨平台桌面宠物框架，支持 macOS 和 Wind
 
 前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 下载最新版本：
 
-- **macOS (Apple Silicon)**：下载 `baebae-pet-v1.1.0-macos-arm64.zip`，解压后将 `Baebae Pet.app` 拖入「应用程序」文件夹；首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
-- **Windows**：下载 `baebae-v1.1.0-windows-x64.zip`，解压后直接运行 `.exe`；若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」
+- **macOS (Apple Silicon)**：下载 `baebae-pet-v1.2.0-macos-arm64.zip`，解压后将 `Baebae Pet.app` 拖入「应用程序」文件夹；首次打开需在「**系统设置 → 隐私与安全性**」中点击「仍要打开」，并在「辅助功能」中允许该 App
+- **Windows**：下载 `baebae-v1.2.0-windows-x64.zip`，解压后直接运行 `.exe`；若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」
 
 #### 从源码运行
 
@@ -86,7 +86,7 @@ python main.py
 
 ![little-wan](5.png)
 
-little-wan 是官方发布的第一款公开皮肤，由 [ark](https://github.com/todayisark) 制作。
+little-wan 是官方发布的第一款公开皮肤。
 
 > 下载：前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 页面下载 `little-wan.zip`，通过右键菜单「导入素材包」导入即可。
 
@@ -226,7 +226,7 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and Windows. It focuses on quiet companionship, state-based animation, keyboard activity detection, break reminders, and replaceable pet asset packs.
 
-🎉 **Latest release: v1.1.0** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
+🎉 **Latest release: v1.2.0** · [📦 Download now](https://github.com/todayisark/baebae-pet/releases/latest) ⬅️
 
 ![Baebae Pet idle](1.png)
 
@@ -246,8 +246,8 @@ Baebae Pet is a lightweight cross-platform desktop pet framework for macOS and W
 
 Go to [Releases](https://github.com/todayisark/baebae-pet/releases/latest) and download the latest build:
 
-- **macOS (Apple Silicon)**: download `baebae-pet-v1.1.0-macos-arm64.zip`, unzip it, and drag `Baebae Pet.app` to your Applications folder; on first launch go to **System Settings → Privacy & Security** to allow the app and enable it under **Accessibility**
-- **Windows**: download `baebae-v1.1.0-windows-x64.zip`, unzip it, and run the `.exe` directly; if Windows SmartScreen appears, click **More info → Run anyway**
+- **macOS (Apple Silicon)**: download `baebae-pet-v1.2.0-macos-arm64.zip`, unzip it, and drag `Baebae Pet.app` to your Applications folder; on first launch go to **System Settings → Privacy & Security** to allow the app and enable it under **Accessibility**
+- **Windows**: download `baebae-v1.2.0-windows-x64.zip`, unzip it, and run the `.exe` directly; if Windows SmartScreen appears, click **More info → Run anyway**
 
 #### Run from source
 
@@ -306,7 +306,7 @@ After launch, the pet appears on the desktop. **Right-click the pet** to open th
 
 ![little-wan](5.png)
 
-little-wan is the first officially released public skin, created by [ark](https://github.com/todayisark).
+little-wan is the first officially released public skin.
 
 > Download: grab `little-wan.zip` from the [Releases](https://github.com/todayisark/baebae-pet/releases/latest) page and import it via the right-click menu.
 
