@@ -86,7 +86,7 @@ python main.py
 
 ![little-wan](5.png)
 
-little-wan 是官方发布的第一款公开皮肤，由 [ark](https://github.com/todayisark) 制作。
+little-wan 是官方发布的第一款公开皮肤。
 
 > 下载：前往 [Releases](https://github.com/todayisark/baebae-pet/releases/latest) 页面下载 `little-wan.zip`，通过右键菜单「导入素材包」导入即可。
 
@@ -306,7 +306,7 @@ After launch, the pet appears on the desktop. **Right-click the pet** to open th
 
 ![little-wan](5.png)
 
-little-wan is the first officially released public skin, created by [ark](https://github.com/todayisark).
+little-wan is the first officially released public skin.
 
 > Download: grab `little-wan.zip` from the [Releases](https://github.com/todayisark/baebae-pet/releases/latest) page and import it via the right-click menu.
 
