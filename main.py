@@ -133,9 +133,20 @@ class PetController:
             if self.animator.has_animation(State.MEAL):
                 self._active_reminder_state = State.MEAL
                 self._go(State.MEAL)
-                self.window.show_reminder(
-                    self.settings.get("meal_reminder_message", "该吃饭啦！")
+                meal_times = normalize_meal_reminder_times(
+                    self.settings.get("meal_reminder_times", [])
                 )
+                meal_idx = meal_times.index(meal_time) if meal_time in meal_times else -1
+                meal_msg_keys = [
+                    "meal_reminder_message_breakfast",
+                    "meal_reminder_message_lunch",
+                    "meal_reminder_message_dinner",
+                ]
+                msg_key = meal_msg_keys[meal_idx] if 0 <= meal_idx < 3 else None
+                message = (
+                    self.settings.get(msg_key, "") if msg_key else ""
+                ) or "该吃饭啦！"
+                self.window.show_reminder(message)
             return
 
         # ── 3. Sleep ──────────────────────────────────────────────────────────

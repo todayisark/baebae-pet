@@ -700,8 +700,21 @@ class PetWindow(QWidget):
             time_edits.append(edit)
         meal_layout.addLayout(form)
 
-        meal_message = QLineEdit(str(self.settings.get("meal_reminder_message", "")))
-        form.addRow(self._text("dialog.settings_meal_message"), meal_message)
+        meal_message_keys = [
+            "meal_reminder_message_breakfast",
+            "meal_reminder_message_lunch",
+            "meal_reminder_message_dinner",
+        ]
+        meal_message_labels = [
+            self._text("dialog.meal_breakfast_message"),
+            self._text("dialog.meal_lunch_message"),
+            self._text("dialog.meal_dinner_message"),
+        ]
+        meal_message_edits: list[QLineEdit] = []
+        for key, label in zip(meal_message_keys, meal_message_labels):
+            edit = QLineEdit(str(self.settings.get(key, "")))
+            form.addRow(label, edit)
+            meal_message_edits.append(edit)
         layout.addWidget(meal_box)
 
         buttons = QDialogButtonBox(
@@ -725,7 +738,8 @@ class PetWindow(QWidget):
         self.settings["meal_reminder_times"] = [
             edit.time().toString("HH:mm") for edit in time_edits
         ]
-        self.settings["meal_reminder_message"] = meal_message.text()
+        for key, edit in zip(meal_message_keys, meal_message_edits):
+            self.settings[key] = edit.text()
 
         self.animator.set_scale(selected_size)
         self.setWindowOpacity(self._normalized_opacity())
