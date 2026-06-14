@@ -12,10 +12,12 @@ class ReminderBubble(QWidget):
     A floating speech-bubble widget that appears above the pet.
 
     Signals:
-        dismissed – emitted when the user clicks "我知道了" or the 30-s timer fires.
+        dismissed – emitted when the user clicks the dismiss button or the timer fires.
+        snoozed   – emitted when the user clicks the snooze button.
     """
 
     dismissed = Signal()
+    snoozed = Signal()
 
     AUTO_DISMISS_MS = 15_000  # 15 seconds
 
@@ -24,6 +26,7 @@ class ReminderBubble(QWidget):
         message: str,
         parent: QWidget | None = None,
         dismiss_label: str = "我知道了",
+        snooze_label: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -34,7 +37,7 @@ class ReminderBubble(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self._setup_ui(message, dismiss_label)
+        self._setup_ui(message, dismiss_label, snooze_label)
 
         self._auto_timer = QTimer(self)
         self._auto_timer.setSingleShot(True)
@@ -58,7 +61,7 @@ class ReminderBubble(QWidget):
     # UI
     # -------------------------------------------------------------------------
 
-    def _setup_ui(self, message: str, dismiss_label: str) -> None:
+    def _setup_ui(self, message: str, dismiss_label: str, snooze_label: str | None) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
@@ -71,6 +74,28 @@ class ReminderBubble(QWidget):
         label.setMaximumWidth(220)
         layout.addWidget(label)
 
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+
+        if snooze_label:
+            btn_snooze = QPushButton(snooze_label)
+            btn_snooze.setStyleSheet(
+                """
+                QPushButton {
+                    background: #E8E8E8;
+                    color: #444444;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 5px 14px;
+                    font-size: 12px;
+                }
+                QPushButton:hover { background: #D8D8D8; }
+                QPushButton:pressed { background: #C8C8C8; }
+                """
+            )
+            btn_snooze.clicked.connect(self._on_snooze)
+            btn_row.addWidget(btn_snooze)
+
         btn = QPushButton(dismiss_label)
         btn.setStyleSheet(
             """
@@ -79,7 +104,7 @@ class ReminderBubble(QWidget):
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 5px 18px;
+                padding: 5px 14px;
                 font-size: 12px;
             }
             QPushButton:hover { background: #4A7BEE; }
@@ -87,7 +112,9 @@ class ReminderBubble(QWidget):
             """
         )
         btn.clicked.connect(self._on_dismiss)
-        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignRight)
+        btn_row.addWidget(btn)
+
+        layout.addLayout(btn_row)
 
     # -------------------------------------------------------------------------
     # Paint – rounded white bubble
@@ -105,6 +132,11 @@ class ReminderBubble(QWidget):
     # -------------------------------------------------------------------------
     # Dismiss
     # -------------------------------------------------------------------------
+
+    def _on_snooze(self) -> None:
+        self._auto_timer.stop()
+        self.close()
+        self.snoozed.emit()
 
     def _on_dismiss(self) -> None:
         self._auto_timer.stop()

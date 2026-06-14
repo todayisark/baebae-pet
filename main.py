@@ -73,8 +73,9 @@ class PetController:
         self._active_reminder_state: State | None = None
         self._meal_reminders_shown: set[str] = set()
 
-        # Wire up reminder-dismissed callback
+        # Wire up reminder-dismissed / snoozed callbacks
         self.window.on_remind_dismissed = self._on_remind_dismissed
+        self.window.on_remind_snoozed = self._on_remind_snoozed
 
         # If hello animation is missing, skip straight to idle
         if not self.animator.has_animation(State.HELLO):
@@ -175,7 +176,8 @@ class PetController:
                 self._active_reminder_state = State.REMIND
                 self._go(State.REMIND)
                 self.window.show_reminder(
-                    self.settings.get("remind_message", "该休息了！")
+                    self.settings.get("remind_message", "该休息了！"),
+                    snooze=True,
                 )
             return
 
@@ -248,6 +250,13 @@ class PetController:
         if self._active_reminder_state == State.REMIND:
             self._remind_shown = False
             self.monitor.reset_work_timer()
+        self._active_reminder_state = None
+
+    def _on_remind_snoozed(self) -> None:
+        """Snooze: next reminder fires after half the configured interval."""
+        remind_s = self.settings.get("remind_interval_minutes", 60) * 60
+        self._remind_shown = False
+        self.monitor.reset_work_timer(offset_seconds=remind_s / 2)
         self._active_reminder_state = None
 
     def stop(self) -> None:

@@ -90,6 +90,7 @@ class PetWindow(QWidget):
 
         # 气泡关闭后通知 PetController 重置工作计时
         self.on_remind_dismissed: Callable[[], None] | None = None
+        self.on_remind_snoozed: Callable[[], None] | None = None
 
         # ── 渲染状态 ──────────────────────────────────────────────────────────
         self._frame_index = 0  # 当前播放到第几帧
@@ -319,15 +320,17 @@ class PetWindow(QWidget):
     # 提醒气泡
     # =========================================================================
 
-    def show_reminder(self, message: str) -> None:
+    def show_reminder(self, message: str, snooze: bool = False) -> None:
         """在宠物上方显示提醒气泡。若气泡已存在则忽略。"""
         if self._reminder_bubble is not None:
             return
         bubble = ReminderBubble(
             message,
             dismiss_label=self._text("reminder.dismiss"),
+            snooze_label=self._text("reminder.snooze") if snooze else None,
         )
         bubble.dismissed.connect(self._on_reminder_dismissed)
+        bubble.snoozed.connect(self._on_reminder_snoozed)
         bubble.adjustSize()
         pos = self.pos()
         bx = max(0, pos.x() + self.width() // 2 - bubble.width() // 2)
@@ -343,6 +346,13 @@ class PetWindow(QWidget):
         self.on_state_changed()
         if self.on_remind_dismissed:
             self.on_remind_dismissed()
+
+    def _on_reminder_snoozed(self) -> None:
+        self._reminder_bubble = None
+        self.state_machine.transition_to(State.IDLE)
+        self.on_state_changed()
+        if self.on_remind_snoozed:
+            self.on_remind_snoozed()
 
     # =========================================================================
     # 右键菜单

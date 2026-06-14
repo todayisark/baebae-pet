@@ -163,8 +163,8 @@ class ActivityMonitor:
         except Exception:
             pass
 
-    def reset_work_timer(self) -> None:
-        self._work_start = time.monotonic()
+    def reset_work_timer(self, offset_seconds: float = 0.0) -> None:
+        self._work_start = time.monotonic() - offset_seconds
 
     # -------------------------------------------------------------------------
     # pynput callbacks (non-macOS background threads)
