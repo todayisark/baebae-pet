@@ -52,6 +52,7 @@ from engine.macos_window import apply_macos_always_on_top
 from engine.pet_template import TEMPLATE_ARCHIVE_NAME, export_pet_template
 from engine.reminder import ReminderBubble, UpdateBubble
 from engine.state_machine import State, StateMachine
+from engine.todo_panel import TodoPanel
 
 
 SIZE_PRESETS: list[tuple[str, tuple[int, int]]] = [
@@ -104,6 +105,9 @@ class PetWindow(QWidget):
         # ── 气泡引用 ──────────────────────────────────────────────────────────
         self._reminder_bubble: ReminderBubble | None = None
         self._update_bubble: UpdateBubble | None = None
+
+        # ── 待办面板（懒初始化，toggle 显示/隐藏） ──────────────────────────────
+        self._todo_panel: TodoPanel | None = None
 
         # ── 更新检查器 ────────────────────────────────────────────────────────
         self._update_checker = update_checker
@@ -355,11 +359,30 @@ class PetWindow(QWidget):
             self.on_remind_snoozed()
 
     # =========================================================================
+    # 待办面板
+    # =========================================================================
+
+    def _toggle_todo(self) -> None:
+        if self._todo_panel is None:
+            lang = self.settings.get("language", "zh")
+            self._todo_panel = TodoPanel(lang)
+        if self._todo_panel.isVisible():
+            self._todo_panel.hide()
+        else:
+            self._todo_panel.position_near(self.pos(), self.width(), self.height())
+            self._todo_panel.show()
+            self._todo_panel.raise_()
+
+    # =========================================================================
     # 右键菜单
     # =========================================================================
 
     def _show_context_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
+
+        # 待办事项（第一项）
+        menu.addAction(self._text("menu.todo")).triggered.connect(self._toggle_todo)
+        menu.addSeparator()
 
         # 动画预览子菜单
         preview_menu = menu.addMenu(self._text("menu.state_preview"))
