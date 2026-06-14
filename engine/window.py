@@ -150,12 +150,13 @@ class PetWindow(QWidget):
         frame = anim.get_frame(0)
         self.resize(frame.size())
 
-        # 默认落在屏幕右下角
+        # 镜像时落在屏幕左下角，否则右下角
         screen = QApplication.primaryScreen().geometry()
-        self.move(
-            screen.width() - self.width() - 40,
-            screen.height() - self.height() - 80,
-        )
+        if self.settings.get("flip_horizontal", False):
+            x = 40
+        else:
+            x = screen.width() - self.width() - 40
+        self.move(x, screen.height() - self.height() - 80)
 
     def _normalized_size_setting(self) -> tuple[int, int]:
         size = self.settings.get("scale", self.settings.get("size", (240, 240)))
