@@ -357,7 +357,30 @@ class PetWindow(QWidget):
             if state in (State.IDLE_RANDOM, State.DRAG_3S, State.DRAG_5S):
                 continue
 
-            if state == State.IDLE and self.animator.idle_variants:
+            if state == State.DRAG:
+                # drag 有时长子状态，展开二级菜单
+                drag_variants = [
+                    (State.DRAG, self._state_label(State.DRAG)),
+                    (State.DRAG_3S, self._state_label(State.DRAG_3S)),
+                    (State.DRAG_5S, self._state_label(State.DRAG_5S)),
+                ]
+                available = [
+                    (s, label) for s, label in drag_variants
+                    if self.animator.has_animation(s.value)
+                ]
+                if len(available) == 1:
+                    action = preview_menu.addAction(self._state_label(state))
+                    action.triggered.connect(
+                        lambda _checked, s=state: self._preview_state(s)
+                    )
+                else:
+                    sub = preview_menu.addMenu(self._state_label(state))
+                    for s, label in available:
+                        a = sub.addAction(label)
+                        a.triggered.connect(
+                            lambda _checked, st=s: self._preview_state(st)
+                        )
+            elif state == State.IDLE and self.animator.idle_variants:
                 # idle 有子动作，展开子菜单
                 sub = preview_menu.addMenu(self._state_label(state))
                 a = sub.addAction(self._text("menu.preview_default"))
